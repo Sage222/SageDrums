@@ -1,0 +1,10 @@
+{
+  "name": "SageDrums",
+  "description": "Step-by-step interactive drum learning studio for the Yamaha DTX452K with 30 progressive lessons, real-time microphone rhythm tracking, virtual metronome, and session improvement analytics.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
