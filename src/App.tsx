@@ -40,6 +40,9 @@ import {
   CheckCircle2,
   RotateCcw,
   Repeat,
+  Timer,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 
 type WorkspaceTab = 'studio' | 'curriculum' | 'metronome' | 'progress';
@@ -52,6 +55,30 @@ interface ScheduledStepSlot {
   hasTarget: boolean;
   expectedPads: DrumPadId[];
   evaluated: boolean;
+}
+
+interface CountInPulseSlot {
+  beatNumber: number; // 1-indexed
+  totalBeats: number;
+  timeMs: number;
+  fired: boolean;
+}
+
+function getCountInBeatsForTimeSignature(timeSignature: Lesson['timeSignature']): number {
+  switch (timeSignature) {
+    case '3/4':
+      return 3;
+    case '5/4':
+      return 5;
+    case '6/8':
+      return 6;
+    case '7/8':
+      return 7;
+    case '12/8':
+    case '4/4':
+    default:
+      return 4;
+  }
 }
 
 export default function App() {
@@ -67,6 +94,11 @@ export default function App() {
   const [bpm, setBpm] = useState<number>(currentLesson.bpm);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [loopForever, setLoopForever] = useState<boolean>(false);
+  const [countInEnabled, setCountInEnabled] = useState<boolean>(
+    initialSettings.countInEnabled ?? true
+  );
+  const [countInBeat, setCountInBeat] = useState<{ current: number; total: number } | null>(null);
+  const [isStageMode, setIsStageMode] = useState<boolean>(false);
   const [isMicEnabled, setIsMicEnabled] = useState<boolean>(false);
   const [midiDeviceName, setMidiDeviceName] = useState<string | null>(null);
   const [micThreshold, setMicThreshold] = useState<number>(initialSettings.micThreshold);
@@ -105,9 +137,37 @@ export default function App() {
     return () => window.removeEventListener('resize', checkOrientation);
   }, []);
 
+  // Sync Stage Mode state with native browser Fullscreen API events
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement) {
+        setIsStageMode(false);
+      } else {
+        setIsStageMode(true);
+      }
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  const handleToggleStageMode = useCallback(async () => {
+    const nextState = !isStageMode;
+    setIsStageMode(nextState);
+    try {
+      if (nextState && !document.fullscreenElement && document.documentElement.requestFullscreen) {
+        await document.documentElement.requestFullscreen();
+      } else if (!nextState && document.fullscreenElement && document.exitFullscreen) {
+        await document.exitFullscreen();
+      }
+    } catch {
+      // Fallback: stage layout expansion remains active even if iframe blocks hardware fullscreen
+    }
+  }, [isStageMode]);
+
   // Mutable refs for high-precision 60fps timing loop
   const isPlayingRef = useRef<boolean>(false);
   const loopForeverRef = useRef<boolean>(loopForever);
+  const countInEnabledRef = useRef<boolean>(countInEnabled);
   const bpmRef = useRef<number>(bpm);
   const lessonRef = useRef<Lesson>(currentLesson);
   const demoAudioRef = useRef<boolean>(demoAudioEnabled);
@@ -115,6 +175,7 @@ export default function App() {
   const micThresholdRef = useRef<number>(micThreshold);
   const latencyOffsetRef = useRef<number>(latencyOffsetMs);
   const scheduledStepsRef = useRef<ScheduledStepSlot[]>([]);
+  const countInPulsesRef = useRef<CountInPulseSlot[]>([]);
   const evaluatedHitsRef = useRef<EvaluatedStepHit[]>([]);
   const nextGlobalStepToScheduleRef = useRef<number>(0);
   const sessionStartTimeMsRef = useRef<number>(0);
@@ -126,6 +187,9 @@ export default function App() {
   useEffect(() => {
     loopForeverRef.current = loopForever;
   }, [loopForever]);
+  useEffect(() => {
+    countInEnabledRef.current = countInEnabled;
+  }, [countInEnabled]);
   useEffect(() => {
     bpmRef.current = bpm;
   }, [bpm]);
@@ -165,6 +229,8 @@ export default function App() {
   const finalizeAndScoreSession = useCallback((hitsToScore: EvaluatedStepHit[]) => {
     setIsPlaying(false);
     isPlayingRef.current = false;
+    setCountInBeat(null);
+    countInPulsesRef.current = [];
 
     const lesson = lessonRef.current;
     const prevBest = getLessonBestScore(loadSessionRecords(), lesson.id);
@@ -273,6 +339,11 @@ export default function App() {
 
       if (!isPlayingRef.current) return;
 
+      // Ignore warm-up hits that occur during the 1-bar count-in prior to Bar 1 Beat 1 window
+      if (compensatedHitMs < sessionStartTimeMsRef.current - 135) {
+        return;
+      }
+
       // Match against the closest unevaluated target step slot within ±160ms
       let bestSlot: ScheduledStepSlot | null = null;
       let minAbsDiff = Infinity;
@@ -322,7 +393,7 @@ export default function App() {
   );
 
   /**
-   * Starts or stops an evaluated lesson session
+   * Starts or stops an evaluated lesson session (with optional 1-bar audible count-in)
    */
   const startLessonSession = useCallback(() => {
     audioEngine.ensureContext();
@@ -332,7 +403,34 @@ export default function App() {
     setEvaluatedHits([]);
     setLastHitFeedback(null);
     nextGlobalStepToScheduleRef.current = 0;
-    sessionStartTimeMsRef.current = performance.now() + 120;
+
+    const nowMs = performance.now();
+    const lesson = lessonRef.current;
+
+    if (countInEnabledRef.current) {
+      const totalCountInBeats = getCountInBeatsForTimeSignature(lesson.timeSignature);
+      const beatDurationMs = (60 / bpmRef.current) * 1000;
+      const countInStartMs = nowMs + 80;
+      const pulses: CountInPulseSlot[] = [];
+
+      for (let i = 0; i < totalCountInBeats; i++) {
+        pulses.push({
+          beatNumber: i + 1,
+          totalBeats: totalCountInBeats,
+          timeMs: countInStartMs + i * beatDurationMs,
+          fired: false,
+        });
+      }
+
+      countInPulsesRef.current = pulses;
+      sessionStartTimeMsRef.current = countInStartMs + totalCountInBeats * beatDurationMs;
+      setCountInBeat({ current: 1, total: totalCountInBeats });
+    } else {
+      countInPulsesRef.current = [];
+      sessionStartTimeMsRef.current = nowMs + 120;
+      setCountInBeat(null);
+    }
+
     setCurrentStepIndex(0);
     setCurrentBar(1);
     setIsPlaying(true);
@@ -342,10 +440,12 @@ export default function App() {
   const stopLessonSession = useCallback(() => {
     setIsPlaying(false);
     isPlayingRef.current = false;
+    setCountInBeat(null);
+    countInPulsesRef.current = [];
   }, []);
 
   /**
-   * High-FPS animation loop for Microphone Wave Tracking + Lesson Step Scheduling
+   * High-FPS animation loop for Microphone Wave Tracking + Count-In + Lesson Step Scheduling
    */
   useEffect(() => {
     let rafId: number;
@@ -378,9 +478,25 @@ export default function App() {
         }
       }
 
-      // 2. Advance Lesson Sequencer & Rhythm Evaluator if playing
+      // 2. Advance Count-In & Lesson Sequencer if playing
       if (isPlayingRef.current) {
         const nowMs = performance.now();
+
+        // 2a. Process 1-Bar Count-In Pulses prior to sessionStartTimeMsRef.current
+        if (countInPulsesRef.current.length > 0) {
+          for (const pulse of countInPulsesRef.current) {
+            if (!pulse.fired && nowMs >= pulse.timeMs - 10) {
+              pulse.fired = true;
+              audioEngine.playMetronomeClick(pulse.beatNumber === 1 ? 'accent' : 'beat');
+              setCountInBeat({ current: pulse.beatNumber, total: pulse.totalBeats });
+            }
+          }
+          if (nowMs >= sessionStartTimeMsRef.current - 15) {
+            countInPulsesRef.current = [];
+            setCountInBeat(null);
+          }
+        }
+
         const lesson = lessonRef.current;
         const stepsPerBar = lesson.stepsPerBar;
         const totalBars = lesson.barsToComplete;
@@ -399,7 +515,7 @@ export default function App() {
 
         const stepDurationMs = (60 / bpmRef.current / stepsPerBeat) * 1000;
 
-        // Schedule steps up to current time (indefinitely if loopForeverRef.current is true)
+        // 2b. Schedule steps up to current time (indefinitely if loopForeverRef.current is true)
         while (
           (loopForeverRef.current || nextGlobalStepToScheduleRef.current < totalSessionSteps) &&
           sessionStartTimeMsRef.current +
@@ -450,7 +566,7 @@ export default function App() {
           nextGlobalStepToScheduleRef.current += 1;
         }
 
-        // Check for missed target steps whose window (±145ms) has expired
+        // 2c. Check for missed target steps whose window (±145ms) has expired
         for (const slot of scheduledStepsRef.current) {
           if (slot.hasTarget && !slot.evaluated && nowMs > slot.expectedTimeMs + 145) {
             slot.evaluated = true;
@@ -467,7 +583,7 @@ export default function App() {
           }
         }
 
-        // Complete automatically only when NOT in Loop Forever mode
+        // 2d. Complete automatically only when NOT in Loop Forever mode
         if (!loopForeverRef.current) {
           const allStepsScheduled = nextGlobalStepToScheduleRef.current >= totalSessionSteps;
           const lastStepEndTime =
@@ -564,112 +680,125 @@ export default function App() {
   );
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#0B0F17] text-slate-100 pb-16 md:pb-6">
+    <div
+      className={`min-h-screen flex flex-col bg-[#0B0F17] text-slate-100 ${
+        isStageMode ? 'pb-3' : 'pb-16 md:pb-6'
+      }`}
+    >
       {/* ==================================================================== */}
       {/* TOP BAR CONTRACT: 3 Zones (Wordmark — 4 Nav Links — 1 Primary CTA)   */}
+      {/* Hidden when Full-Screen Stage Mode is active for max stage height    */}
       {/* ==================================================================== */}
-      <header className="sticky top-0 z-30 h-14 flex items-center justify-between gap-8 px-4 sm:px-6 bg-[#0B0F17]/90 backdrop-blur-md border-b border-slate-800/90">
-        {/* Zone 1: Single text element wordmark */}
-        <a
-          href="#studio"
-          onClick={(e) => {
-            e.preventDefault();
-            setActiveTab('studio');
-          }}
-          className="text-lg font-bold tracking-tight text-white font-display whitespace-nowrap shrink-0"
-        >
-          SageDrums
-        </a>
-
-        {/* Zone 2: 4 concise single-line text navigation links */}
-        <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-slate-400">
+      {!isStageMode && (
+        <header className="sticky top-0 z-30 h-14 flex items-center justify-between gap-8 px-4 sm:px-6 bg-[#0B0F17]/90 backdrop-blur-md border-b border-slate-800/90">
+          {/* Zone 1: Single text element wordmark */}
           <a
             href="#studio"
             onClick={(e) => {
               e.preventDefault();
               setActiveTab('studio');
             }}
-            className={`transition-colors whitespace-nowrap shrink-0 py-1 ${
-              activeTab === 'studio'
-                ? 'text-white underline decoration-amber-500 decoration-2 underline-offset-8'
-                : 'hover:text-white'
-            }`}
+            className="text-lg font-bold tracking-tight text-white font-display whitespace-nowrap shrink-0"
           >
-            Studio
+            SageDrums
           </a>
-          <a
-            href="#curriculum"
-            onClick={(e) => {
-              e.preventDefault();
-              setActiveTab('curriculum');
-            }}
-            className={`transition-colors whitespace-nowrap shrink-0 py-1 ${
-              activeTab === 'curriculum'
-                ? 'text-white underline decoration-amber-500 decoration-2 underline-offset-8'
-                : 'hover:text-white'
-            }`}
-          >
-            Curriculum
-          </a>
-          <a
-            href="#metronome"
-            onClick={(e) => {
-              e.preventDefault();
-              setActiveTab('metronome');
-            }}
-            className={`transition-colors whitespace-nowrap shrink-0 py-1 ${
-              activeTab === 'metronome'
-                ? 'text-white underline decoration-amber-500 decoration-2 underline-offset-8'
-                : 'hover:text-white'
-            }`}
-          >
-            Metronome
-          </a>
-          <a
-            href="#progress"
-            onClick={(e) => {
-              e.preventDefault();
-              setActiveTab('progress');
-            }}
-            className={`transition-colors whitespace-nowrap shrink-0 py-1 ${
-              activeTab === 'progress'
-                ? 'text-white underline decoration-amber-500 decoration-2 underline-offset-8'
-                : 'hover:text-white'
-            }`}
-          >
-            Progress
-          </a>
-        </nav>
 
-        {/* Zone 3: 1 Primary Action Button */}
-        <div className="flex items-center shrink-0">
-          <button
-            type="button"
-            onClick={() => {
-              if (activeTab !== 'studio') {
+          {/* Zone 2: 4 concise single-line text navigation links */}
+          <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-slate-400">
+            <a
+              href="#studio"
+              onClick={(e) => {
+                e.preventDefault();
                 setActiveTab('studio');
-              }
-              if (isPlaying) {
-                stopLessonSession();
-              } else {
-                startLessonSession();
-              }
-            }}
-            className={`min-h-[38px] px-4 py-1.5 text-xs font-bold rounded-lg transition-colors whitespace-nowrap shrink-0 ${
-              isPlaying
-                ? 'bg-rose-500 hover:bg-rose-400 text-white'
-                : 'bg-amber-500 hover:bg-amber-400 text-slate-950'
-            }`}
-          >
-            {isPlaying ? 'Stop Session' : `Start Lesson ${String(currentLesson.id).padStart(2, '0')}`}
-          </button>
-        </div>
-      </header>
+              }}
+              className={`transition-colors whitespace-nowrap shrink-0 py-1 ${
+                activeTab === 'studio'
+                  ? 'text-white underline decoration-amber-500 decoration-2 underline-offset-8'
+                  : 'hover:text-white'
+              }`}
+            >
+              Studio
+            </a>
+            <a
+              href="#curriculum"
+              onClick={(e) => {
+                e.preventDefault();
+                setActiveTab('curriculum');
+              }}
+              className={`transition-colors whitespace-nowrap shrink-0 py-1 ${
+                activeTab === 'curriculum'
+                  ? 'text-white underline decoration-amber-500 decoration-2 underline-offset-8'
+                  : 'hover:text-white'
+              }`}
+            >
+              Curriculum
+            </a>
+            <a
+              href="#metronome"
+              onClick={(e) => {
+                e.preventDefault();
+                setActiveTab('metronome');
+              }}
+              className={`transition-colors whitespace-nowrap shrink-0 py-1 ${
+                activeTab === 'metronome'
+                  ? 'text-white underline decoration-amber-500 decoration-2 underline-offset-8'
+                  : 'hover:text-white'
+              }`}
+            >
+              Metronome
+            </a>
+            <a
+              href="#progress"
+              onClick={(e) => {
+                e.preventDefault();
+                setActiveTab('progress');
+              }}
+              className={`transition-colors whitespace-nowrap shrink-0 py-1 ${
+                activeTab === 'progress'
+                  ? 'text-white underline decoration-amber-500 decoration-2 underline-offset-8'
+                  : 'hover:text-white'
+              }`}
+            >
+              Progress
+            </a>
+          </nav>
+
+          {/* Zone 3: 1 Primary Action Button */}
+          <div className="flex items-center shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                if (activeTab !== 'studio') {
+                  setActiveTab('studio');
+                }
+                if (isPlaying) {
+                  stopLessonSession();
+                } else {
+                  startLessonSession();
+                }
+              }}
+              className={`min-h-[38px] px-4 py-1.5 text-xs font-bold rounded-lg transition-colors whitespace-nowrap shrink-0 ${
+                isPlaying
+                  ? 'bg-rose-500 hover:bg-rose-400 text-white'
+                  : 'bg-amber-500 hover:bg-amber-400 text-slate-950'
+              }`}
+            >
+              {isPlaying
+                ? 'Stop Session'
+                : `Start Lesson ${String(currentLesson.id).padStart(2, '0')}`}
+            </button>
+          </div>
+        </header>
+      )}
 
       {/* ==================================================================== */}
       {/* MAIN WORKSPACE CONTENT                                               */}
       {/* ==================================================================== */}
-      <main className="flex-1 w-full max-w-[1440px] mx-auto px-3 sm:px-6 pt-3 sm:pt-5">
+      <main
+        className={`flex-1 w-full max-w-[1440px] mx-auto px-3 sm:px-6 ${
+          isStageMode ? 'pt-2' : 'pt-3 sm:pt-5'
+        }`}
+      >
         {activeTab === 'studio' && (
           <div className="space-y-4">
             {/* Studio Workspace Control Strip */}
@@ -689,6 +818,24 @@ export default function App() {
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
+                {/* 1-Bar Count-In Toggle Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !countInEnabled;
+                    setCountInEnabled(next);
+                    saveUserSettings({ countInEnabled: next });
+                  }}
+                  className={`min-h-[38px] px-3 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 ${
+                    countInEnabled
+                      ? 'bg-amber-500/15 border-amber-500/60 text-amber-300'
+                      : 'bg-slate-800/90 border-slate-700 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <Timer className="w-3.5 h-3.5" />
+                  <span>{countInEnabled ? '1-Bar Count-In: ON' : 'Count-In: OFF'}</span>
+                </button>
+
                 {/* Loop Forever Button */}
                 <button
                   type="button"
@@ -701,6 +848,24 @@ export default function App() {
                 >
                   <Repeat className="w-3.5 h-3.5" />
                   <span>{loopForever ? 'Loop Forever: ON' : 'Loop Forever'}</span>
+                </button>
+
+                {/* Full-Screen Stage Mode Toggle Button */}
+                <button
+                  type="button"
+                  onClick={handleToggleStageMode}
+                  className={`min-h-[38px] px-3 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 ${
+                    isStageMode
+                      ? 'bg-sky-500/20 border-sky-400 text-sky-300'
+                      : 'bg-slate-800/90 border-slate-700 text-slate-300 hover:text-white'
+                  }`}
+                >
+                  {isStageMode ? (
+                    <Minimize2 className="w-3.5 h-3.5" />
+                  ) : (
+                    <Maximize2 className="w-3.5 h-3.5" />
+                  )}
+                  <span>{isStageMode ? 'Exit Stage Mode' : 'Stage Mode'}</span>
                 </button>
 
                 {isPlaying && evaluatedHits.length > 0 && (
@@ -726,7 +891,11 @@ export default function App() {
                   {isPlaying ? <Square className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
                   <span>
                     {isPlaying
-                      ? `Stop (Bar ${currentBar}/${loopForever ? '∞' : currentLesson.barsToComplete})`
+                      ? countInBeat
+                        ? `Count-In (${countInBeat.current}/${countInBeat.total})`
+                        : `Stop (Bar ${currentBar}/${
+                            loopForever ? '∞' : currentLesson.barsToComplete
+                          })`
                       : loopForever
                       ? 'Start Infinite Loop'
                       : `Evaluate ${currentLesson.barsToComplete} Bars`}
@@ -765,6 +934,7 @@ export default function App() {
                   bpm={bpm}
                   isPlaying={isPlaying}
                   loopForever={loopForever}
+                  countInBeat={countInBeat}
                   isMicEnabled={isMicEnabled}
                   micThreshold={micThreshold}
                   latencyOffsetMs={latencyOffsetMs}
@@ -873,56 +1043,58 @@ export default function App() {
       </main>
 
       {/* ==================================================================== */}
-      {/* MOBILE / ANDROID FIXED BOTTOM TAB BAR (Thumb-Zone Ergonomics)        */}
+      {/* MOBILE / ANDROID FIXED BOTTOM TAB BAR (Hidden in Stage Mode)         */}
       {/* ==================================================================== */}
-      <nav
-        aria-label="Mobile Navigation"
-        className="md:hidden fixed bottom-0 left-0 right-0 z-40 h-14 bg-[#0B0F17]/95 backdrop-blur-md border-t border-slate-800 grid grid-cols-4 items-center"
-      >
-        <button
-          type="button"
-          onClick={() => setActiveTab('studio')}
-          className={`min-h-[44px] flex flex-col items-center justify-center ${
-            activeTab === 'studio' ? 'text-amber-400' : 'text-slate-400'
-          }`}
+      {!isStageMode && (
+        <nav
+          aria-label="Mobile Navigation"
+          className="md:hidden fixed bottom-0 left-0 right-0 z-40 h-14 bg-[#0B0F17]/95 backdrop-blur-md border-t border-slate-800 grid grid-cols-4 items-center"
         >
-          <Disc className="w-5 h-5" />
-          <span className="text-[10px] font-semibold mt-0.5">Studio</span>
-        </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('studio')}
+            className={`min-h-[44px] flex flex-col items-center justify-center ${
+              activeTab === 'studio' ? 'text-amber-400' : 'text-slate-400'
+            }`}
+          >
+            <Disc className="w-5 h-5" />
+            <span className="text-[10px] font-semibold mt-0.5">Studio</span>
+          </button>
 
-        <button
-          type="button"
-          onClick={() => setActiveTab('curriculum')}
-          className={`min-h-[44px] flex flex-col items-center justify-center ${
-            activeTab === 'curriculum' ? 'text-amber-400' : 'text-slate-400'
-          }`}
-        >
-          <BookOpen className="w-5 h-5" />
-          <span className="text-[10px] font-semibold mt-0.5">30 Lessons</span>
-        </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('curriculum')}
+            className={`min-h-[44px] flex flex-col items-center justify-center ${
+              activeTab === 'curriculum' ? 'text-amber-400' : 'text-slate-400'
+            }`}
+          >
+            <BookOpen className="w-5 h-5" />
+            <span className="text-[10px] font-semibold mt-0.5">30 Lessons</span>
+          </button>
 
-        <button
-          type="button"
-          onClick={() => setActiveTab('metronome')}
-          className={`min-h-[44px] flex flex-col items-center justify-center ${
-            activeTab === 'metronome' ? 'text-amber-400' : 'text-slate-400'
-          }`}
-        >
-          <Gauge className="w-5 h-5" />
-          <span className="text-[10px] font-semibold mt-0.5">Metronome</span>
-        </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('metronome')}
+            className={`min-h-[44px] flex flex-col items-center justify-center ${
+              activeTab === 'metronome' ? 'text-amber-400' : 'text-slate-400'
+            }`}
+          >
+            <Gauge className="w-5 h-5" />
+            <span className="text-[10px] font-semibold mt-0.5">Metronome</span>
+          </button>
 
-        <button
-          type="button"
-          onClick={() => setActiveTab('progress')}
-          className={`min-h-[44px] flex flex-col items-center justify-center ${
-            activeTab === 'progress' ? 'text-amber-400' : 'text-slate-400'
-          }`}
-        >
-          <BarChart3 className="w-5 h-5" />
-          <span className="text-[10px] font-semibold mt-0.5">Progress</span>
-        </button>
-      </nav>
+          <button
+            type="button"
+            onClick={() => setActiveTab('progress')}
+            className={`min-h-[44px] flex flex-col items-center justify-center ${
+              activeTab === 'progress' ? 'text-amber-400' : 'text-slate-400'
+            }`}
+          >
+            <BarChart3 className="w-5 h-5" />
+            <span className="text-[10px] font-semibold mt-0.5">Progress</span>
+          </button>
+        </nav>
+      )}
 
       {/* ==================================================================== */}
       {/* END-OF-LESSON SESSION SCORE & PERSONAL BEST MODAL                    */}

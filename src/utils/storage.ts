@@ -10,6 +10,7 @@ export interface UserDrumSettings {
   drumVolume: number;
   lastLessonId: number;
   autoDemoAudio: boolean;
+  countInEnabled: boolean;
 }
 
 const DEFAULT_SETTINGS: UserDrumSettings = {
@@ -19,6 +20,7 @@ const DEFAULT_SETTINGS: UserDrumSettings = {
   drumVolume: 0.85,
   lastLessonId: 1,
   autoDemoAudio: false,
+  countInEnabled: true,
 };
 
 export function loadSessionRecords(): SessionRecord[] {

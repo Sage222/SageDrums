@@ -8,6 +8,7 @@ interface WaveTrackerCanvasProps {
   bpm: number;
   isPlaying: boolean;
   loopForever: boolean;
+  countInBeat?: { current: number; total: number } | null;
   isMicEnabled: boolean;
   micThreshold: number;
   latencyOffsetMs: number;
@@ -28,6 +29,7 @@ export const WaveTrackerCanvas: React.FC<WaveTrackerCanvasProps> = ({
   bpm,
   isPlaying,
   loopForever,
+  countInBeat = null,
   isMicEnabled,
   micThreshold,
   latencyOffsetMs,
@@ -247,6 +249,12 @@ export const WaveTrackerCanvas: React.FC<WaveTrackerCanvasProps> = ({
   ]);
 
   const formatRatingBadge = (hit: EvaluatedStepHit | null) => {
+    if (countInBeat) {
+      return {
+        text: `● COUNT-IN: BEAT ${countInBeat.current} / ${countInBeat.total}`,
+        colorClass: 'text-amber-400',
+      };
+    }
     if (!hit) {
       return {
         text: isMicEnabled ? 'MIC LISTENING · STRIKE PAD' : 'TAP PAD / ENABLE MIC',
@@ -316,6 +324,34 @@ export const WaveTrackerCanvas: React.FC<WaveTrackerCanvasProps> = ({
           ref={canvasRef}
           className={`w-full block ${compactLandscape ? 'h-[135px]' : 'h-[175px]'}`}
         />
+        {countInBeat && (
+          <div className="absolute inset-0 bg-[#090D16]/75 backdrop-blur-[2px] flex flex-col items-center justify-center pointer-events-none">
+            <div className="text-xs font-mono font-semibold text-slate-300 tracking-wide">
+              1-BAR COUNT-IN · GET STICKS READY FOR BEAT 1
+            </div>
+            <div className="flex items-center gap-3 mt-2">
+              {Array.from({ length: countInBeat.total }).map((_, idx) => {
+                const beatNum = idx + 1;
+                const isActive = beatNum === countInBeat.current;
+                const isPassed = beatNum < countInBeat.current;
+                return (
+                  <div
+                    key={beatNum}
+                    className={`w-10 h-10 rounded-xl font-mono text-lg font-bold tabular-nums flex items-center justify-center border transition-transform ${
+                      isActive
+                        ? 'bg-amber-500 border-amber-300 text-slate-950 scale-110'
+                        : isPassed
+                        ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
+                        : 'bg-slate-900 border-slate-700 text-slate-500'
+                    }`}
+                  >
+                    {beatNum}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Labeled Calibration Sliders (Threshold & Latency Compensation) */}
