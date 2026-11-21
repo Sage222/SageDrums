@@ -205,10 +205,10 @@ export const LessonNotationDeck: React.FC<LessonNotationDeckProps> = ({
             <div
               className="grid gap-1 mb-1.5 items-center"
               style={{
-                gridTemplateColumns: `84px repeat(${lesson.stepsPerBar}, minmax(22px, 1fr))`,
+                gridTemplateColumns: `112px repeat(${lesson.stepsPerBar}, minmax(22px, 1fr))`,
               }}
             >
-              <div className="text-[10px] font-mono text-slate-500">PAD / COUNT</div>
+              <div className="text-[10px] font-mono text-slate-500"># / DRUM PAD</div>
               {Array.from({ length: lesson.stepsPerBar }).map((_, sIdx) => {
                 const label = getStepCountLabel(sIdx, lesson.stepsPerBar, lesson.timeSignature);
                 const isCurrent = isPlaying && currentStepIndex === sIdx;
@@ -235,82 +235,86 @@ export const LessonNotationDeck: React.FC<LessonNotationDeckProps> = ({
               })}
             </div>
 
-            {/* Row for Each Active Focus Pad in Lesson */}
+            {/* Row for Each Active Focus Pad in Lesson (Sorted by Beginner Kit Number #1, #2, #3...) */}
             <div className="space-y-1">
-              {lesson.focusPads.map((padId) => {
-                const padCfg = YAMAHA_DTX452K_PADS[padId];
-                return (
-                  <div
-                    key={padId}
-                    className="grid gap-1 items-center"
-                    style={{
-                      gridTemplateColumns: `84px repeat(${lesson.stepsPerBar}, minmax(22px, 1fr))`,
-                    }}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => onTriggerPad(padId)}
-                      className="text-left text-[11px] font-semibold text-slate-300 hover:text-white truncate flex items-center gap-1 pr-1"
-                      title={`${padCfg.name} [${padCfg.keyShortcut}]`}
+              {[...lesson.focusPads]
+                .sort((a, b) => YAMAHA_DTX452K_PADS[a].kitNumber - YAMAHA_DTX452K_PADS[b].kitNumber)
+                .map((padId) => {
+                  const padCfg = YAMAHA_DTX452K_PADS[padId];
+                  return (
+                    <div
+                      key={padId}
+                      className="grid gap-1 items-center"
+                      style={{
+                        gridTemplateColumns: `112px repeat(${lesson.stepsPerBar}, minmax(22px, 1fr))`,
+                      }}
                     >
-                      <span
-                        className="w-2 h-2 rounded-sm shrink-0"
-                        style={{ backgroundColor: padCfg.color }}
-                      />
-                      <span className="truncate">{padCfg.shortLabel}</span>
-                      <span className="font-mono text-[9px] text-slate-500">
-                        [{padCfg.keyShortcut === 'Space' ? 'SPC' : padCfg.keyShortcut}]
-                      </span>
-                    </button>
-
-                    {Array.from({ length: lesson.stepsPerBar }).map((_, sIdx) => {
-                      const stepEvent = lesson.pattern.find((p) => p.stepIndex === sIdx);
-                      const hasHit = Boolean(stepEvent?.pads.includes(padId));
-                      const isCurrent = isPlaying && currentStepIndex === sIdx;
-
-                      const evalRecord = [...recentHits]
-                        .reverse()
-                        .find(
-                          (h) =>
-                            h.stepIndex === sIdx &&
-                            (h.barNumber === currentBar || h.barNumber === currentBar - 1)
-                        );
-
-                      let cellBorder = 'border-slate-800/80';
-                      if (hasHit && evalRecord) {
-                        if (evalRecord.rating === 'PERFECT') cellBorder = 'border-emerald-400';
-                        else if (evalRecord.rating === 'GOOD') cellBorder = 'border-sky-400';
-                        else if (evalRecord.rating === 'MISSED') cellBorder = 'border-rose-500';
-                        else cellBorder = 'border-violet-400';
-                      }
-
-                      return (
-                        <div
-                          key={sIdx}
-                          className={`h-7 rounded border flex items-center justify-center font-mono text-[9px] transition-all ${cellBorder} ${
-                            hasHit
-                              ? isCurrent
-                                ? 'scale-105 text-white font-bold'
-                                : 'text-white font-semibold'
-                              : isCurrent
-                              ? 'bg-slate-800/60'
-                              : 'bg-[#0B0F17]'
-                          }`}
-                          style={{
-                            backgroundColor: hasHit
-                              ? isCurrent
-                                ? '#8B5CF6'
-                                : `${padCfg.color}33`
-                              : undefined,
-                          }}
+                      <button
+                        type="button"
+                        onClick={() => onTriggerPad(padId)}
+                        className="text-left text-[11px] font-semibold text-slate-200 hover:text-white truncate flex items-center gap-1.5 pr-1"
+                        title={`#${padCfg.kitNumber} ${padCfg.name} [${padCfg.keyShortcut}]`}
+                      >
+                        <span
+                          className="px-1.5 py-0.5 rounded font-mono text-[10px] font-extrabold text-white shrink-0"
+                          style={{ backgroundColor: padCfg.color }}
                         >
-                          {hasHit ? stepEvent?.sticking?.split('+')[0] || '●' : ''}
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              })}
+                          #{padCfg.kitNumber}
+                        </span>
+                        <span className="truncate">{padCfg.friendlyName}</span>
+                        <span className="font-mono text-[9.5px] text-slate-400 shrink-0">
+                          ({padCfg.shortLabel})
+                        </span>
+                      </button>
+
+                      {Array.from({ length: lesson.stepsPerBar }).map((_, sIdx) => {
+                        const stepEvent = lesson.pattern.find((p) => p.stepIndex === sIdx);
+                        const hasHit = Boolean(stepEvent?.pads.includes(padId));
+                        const isCurrent = isPlaying && currentStepIndex === sIdx;
+
+                        const evalRecord = [...recentHits]
+                          .reverse()
+                          .find(
+                            (h) =>
+                              h.stepIndex === sIdx &&
+                              (h.barNumber === currentBar || h.barNumber === currentBar - 1)
+                          );
+
+                        let cellBorder = 'border-slate-800/80';
+                        if (hasHit && evalRecord) {
+                          if (evalRecord.rating === 'PERFECT') cellBorder = 'border-emerald-400';
+                          else if (evalRecord.rating === 'GOOD') cellBorder = 'border-sky-400';
+                          else if (evalRecord.rating === 'MISSED') cellBorder = 'border-rose-500';
+                          else cellBorder = 'border-violet-400';
+                        }
+
+                        return (
+                          <div
+                            key={sIdx}
+                            className={`h-7 rounded border flex items-center justify-center font-mono text-[10px] transition-all ${cellBorder} ${
+                              hasHit
+                                ? isCurrent
+                                  ? 'scale-105 text-white font-extrabold'
+                                  : 'text-white font-bold'
+                                : isCurrent
+                                ? 'bg-slate-800/60'
+                                : 'bg-[#0B0F17]'
+                            }`}
+                            style={{
+                              backgroundColor: hasHit
+                                ? isCurrent
+                                  ? '#8B5CF6'
+                                  : `${padCfg.color}40`
+                                : undefined,
+                            }}
+                          >
+                            {hasHit ? `#${padCfg.kitNumber}` : ''}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
             </div>
           </div>
         </div>

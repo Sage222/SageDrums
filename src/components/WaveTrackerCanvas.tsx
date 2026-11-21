@@ -70,7 +70,7 @@ export const WaveTrackerCanvas: React.FC<WaveTrackerCanvasProps> = ({
     const dpr = window.devicePixelRatio || 1;
     const rect = canvas.getBoundingClientRect();
     const width = rect.width || 1100;
-    const height = rect.height || (compactLandscape ? 165 : 230);
+    const height = rect.height || (compactLandscape ? 330 : 460);
 
     if (canvas.width !== width * dpr || canvas.height !== height * dpr) {
       canvas.width = width * dpr;
@@ -83,31 +83,31 @@ export const WaveTrackerCanvas: React.FC<WaveTrackerCanvasProps> = ({
     ctx.fillStyle = '#090D16';
     ctx.fillRect(0, 0, width, height);
 
-    const splitY = Math.floor(height * 0.52);
+    const splitY = Math.floor(height * 0.34);
 
     // ========================================================================
     // TOP ZONE: REAL-TIME OSCILLOSCOPE WAVEFORM & TRANSIENT ENVELOPE TRACKER
     // ========================================================================
     ctx.strokeStyle = '#1E293B';
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.moveTo(0, splitY);
     ctx.lineTo(width, splitY);
     ctx.stroke();
 
     // Draw Threshold Reference Line in top zone
-    const threshY = splitY - 6 - Math.min(1, micThreshold) * (splitY - 16);
+    const threshY = splitY - 6 - Math.min(1, micThreshold) * (splitY - 20);
     ctx.save();
     ctx.strokeStyle = '#8B5CF6';
-    ctx.setLineDash([4, 4]);
-    ctx.lineWidth = 1;
+    ctx.setLineDash([5, 5]);
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.moveTo(0, threshY);
     ctx.lineTo(width, threshY);
     ctx.stroke();
-    ctx.fillStyle = '#A78BFA';
-    ctx.font = '600 10px "JetBrains Mono", monospace';
-    ctx.fillText(`THRESHOLD ${(micThreshold * 100).toFixed(0)}%`, 8, Math.max(12, threshY - 4));
+    ctx.fillStyle = '#C4B5FD';
+    ctx.font = '700 11.5px "JetBrains Mono", monospace';
+    ctx.fillText(`THRESHOLD ${(micThreshold * 100).toFixed(0)}%`, 10, Math.max(14, threshY - 6));
     ctx.restore();
 
     // Draw Rolling Transient Envelope Bars across Top Half
@@ -172,65 +172,139 @@ export const WaveTrackerCanvas: React.FC<WaveTrackerCanvasProps> = ({
       ctx.lineTo(cellX, height);
       ctx.stroke();
 
-      // Count Label at top of bottom zone
-      const countText = getStepCountLabel(s, stepsPerBar, lesson.timeSignature);
-      ctx.fillStyle = isCurrentStep ? '#38BDF8' : isDownbeat ? '#E2E8F0' : '#64748B';
-      ctx.font = `${isDownbeat ? '700' : '500'} 11px "JetBrains Mono", monospace`;
-      ctx.fillText(countText, cellX + 6, splitY + 16);
+      // Count Label Header Bar at top of bottom zone
+      const countHeaderH = compactLandscape ? 28 : 36;
+      ctx.fillStyle = isCurrentStep
+        ? 'rgba(139, 92, 246, 0.28)'
+        : isDownbeat
+        ? 'rgba(30, 41, 59, 0.65)'
+        : 'rgba(15, 23, 42, 0.55)';
+      ctx.fillRect(cellX + 1, splitY + 1, cellW - 2, countHeaderH);
 
-      // Expected Pad Badges inside Step Slot
+      const countText = getStepCountLabel(s, stepsPerBar, lesson.timeSignature);
+      ctx.fillStyle = isCurrentStep ? '#DDD6FE' : isDownbeat ? '#F8FAFC' : '#94A3B8';
+      ctx.font = `${isDownbeat || isCurrentStep ? '800' : '600'} ${
+        compactLandscape ? '13px' : '15px'
+      } "JetBrains Mono", monospace`;
+      ctx.fillText(countText, cellX + 10, splitY + (compactLandscape ? 19 : 24));
+
+      // Expected Numbered Pad Badges inside Step Slot
       if (stepEvent) {
+        const badgeH = compactLandscape ? 32 : 44;
+        const badgeGap = compactLandscape ? 38 : 52;
+        const startY = splitY + countHeaderH + (compactLandscape ? 8 : 12);
+
         stepEvent.pads.forEach((padId, idx) => {
           const padCfg = YAMAHA_DTX452K_PADS[padId];
-          const badgeY = splitY + 24 + idx * 21;
-          if (badgeY + 17 < height - 18) {
-            ctx.fillStyle = isCurrentStep ? padCfg.color : '#1E293B';
-            ctx.strokeStyle = padCfg.color;
-            ctx.lineWidth = 1.3;
+          const badgeY = startY + idx * badgeGap;
+          const badgeW = Math.max(32, cellW - 12);
+          const badgeX = cellX + 6;
+
+          if (badgeY + badgeH < height - 34) {
+            // Outer Pad Badge Card
+            ctx.fillStyle = isCurrentStep ? padCfg.color : '#151E30';
+            ctx.strokeStyle = isCurrentStep ? '#FFFFFF' : padCfg.color;
+            ctx.lineWidth = isCurrentStep ? 2.2 : 1.6;
             ctx.beginPath();
-            ctx.roundRect(cellX + 4, badgeY, Math.max(24, cellW - 8), 17, 4);
+            ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 7);
             ctx.fill();
             ctx.stroke();
 
+            // Left Number Pill Box (#1, #2, #3...)
+            const numBoxW = Math.min(badgeW - 6, compactLandscape ? 28 : 34);
+            ctx.fillStyle = isCurrentStep ? 'rgba(9, 13, 22, 0.35)' : padCfg.color;
+            ctx.beginPath();
+            ctx.roundRect(badgeX + 3, badgeY + 3, numBoxW, badgeH - 6, 5);
+            ctx.fill();
+
             ctx.fillStyle = '#FFFFFF';
-            ctx.font = '700 10px "JetBrains Mono", monospace';
-            ctx.fillText(padCfg.shortLabel, cellX + 9, badgeY + 12);
+            ctx.font = `800 ${compactLandscape ? '11.5px' : '13px'} "JetBrains Mono", monospace`;
+            ctx.fillText(
+              `#${padCfg.kitNumber}`,
+              badgeX + (padCfg.kitNumber >= 10 ? 5 : 8),
+              badgeY + badgeH / 2 + (compactLandscape ? 4 : 4.5)
+            );
+
+            // Right Text: Short Code + Friendly Drum Name
+            const textStartX = badgeX + numBoxW + 8;
+            const remainingW = badgeW - numBoxW - 10;
+
+            if (remainingW >= 78 && !compactLandscape) {
+              // Two-line clear readout: Short Code + Full Friendly Name
+              ctx.fillStyle = '#FFFFFF';
+              ctx.font = '800 12.5px "JetBrains Mono", monospace';
+              ctx.fillText(padCfg.shortLabel, textStartX, badgeY + 18);
+
+              ctx.fillStyle = isCurrentStep ? '#F8FAFC' : '#CBD5E1';
+              ctx.font = '600 11px "Plus Jakarta Sans", sans-serif';
+              ctx.fillText(padCfg.friendlyName, textStartX, badgeY + 34);
+            } else if (remainingW >= 44) {
+              // Single-line readout: Short Code (and friendly name if wide enough)
+              ctx.fillStyle = '#FFFFFF';
+              ctx.font = `700 ${compactLandscape ? '11px' : '12.5px'} "JetBrains Mono", monospace`;
+              const displayLabel =
+                remainingW >= 86
+                  ? `${padCfg.shortLabel} · ${padCfg.friendlyName}`
+                  : padCfg.shortLabel;
+              ctx.fillText(
+                displayLabel,
+                textStartX,
+                badgeY + badgeH / 2 + (compactLandscape ? 4 : 4.5)
+              );
+            }
           }
         });
       }
 
-      // Evaluated Accuracy Marker for this step in current or recent bar
+      // Evaluated Accuracy Marker at bottom of this step column
       const evaluated = [...recentHits]
         .reverse()
         .find((h) => h.stepIndex === s && (h.barNumber === currentBar || h.barNumber === currentBar - 1));
 
       if (evaluated) {
-        const markerY = height - 14;
+        const footerH = compactLandscape ? 24 : 30;
+        const footerY = height - footerH - 4;
         let symbol = '●';
         let color = '#10B981';
+        let bgFill = 'rgba(16, 185, 129, 0.16)';
         if (evaluated.rating === 'PERFECT') {
           symbol = '●';
-          color = '#10B981';
+          color = '#34D399';
+          bgFill = 'rgba(16, 185, 129, 0.18)';
         } else if (evaluated.rating === 'GOOD') {
           symbol = '◆';
           color = '#38BDF8';
+          bgFill = 'rgba(56, 189, 248, 0.18)';
         } else if (evaluated.rating === 'EARLY') {
           symbol = '▲';
-          color = '#A78BFA';
+          color = '#C4B5FD';
+          bgFill = 'rgba(139, 92, 246, 0.2)';
         } else if (evaluated.rating === 'LATE') {
           symbol = '▼';
-          color = '#F97316';
+          color = '#FB923C';
+          bgFill = 'rgba(249, 115, 22, 0.18)';
         } else {
           symbol = '×';
-          color = '#EF4444';
+          color = '#F87171';
+          bgFill = 'rgba(239, 68, 68, 0.18)';
         }
+
+        ctx.fillStyle = bgFill;
+        ctx.beginPath();
+        ctx.roundRect(cellX + 5, footerY, Math.max(20, cellW - 10), footerH, 5);
+        ctx.fill();
+
         ctx.fillStyle = color;
-        ctx.font = '700 10px "JetBrains Mono", monospace';
+        ctx.font = `700 ${compactLandscape ? '10.5px' : '12px'} "JetBrains Mono", monospace`;
         const offsetStr =
           evaluated.offsetMs !== undefined
             ? `${evaluated.offsetMs > 0 ? '+' : ''}${Math.round(evaluated.offsetMs)}ms`
             : 'MISS';
-        ctx.fillText(`${symbol}${cellW > 46 ? ' ' + offsetStr : ''}`, cellX + 4, markerY);
+        const ratingShort =
+          cellW >= 120
+            ? `${symbol} ${evaluated.rating} ${offsetStr !== 'MISS' ? offsetStr : ''}`
+            : `${symbol}${cellW > 50 ? ' ' + offsetStr : ''}`;
+        ctx.fillText(ratingShort.trim(), cellX + 10, footerY + footerH / 2 + 4);
       }
     }
 
@@ -318,11 +392,36 @@ export const WaveTrackerCanvas: React.FC<WaveTrackerCanvasProps> = ({
         </div>
       </div>
 
-      {/* Oscilloscope & Synchronized Step Wave Canvas */}
+      {/* Beginner Kit Number Key Strip: Maps #1, #2, #3... to Drum Names & Abbreviations */}
+      <div className="flex flex-wrap items-center gap-2 mb-2.5 px-2.5 py-2 rounded-lg bg-[#0B0F17] border border-slate-800/90 text-xs">
+        <span className="text-slate-400 font-semibold shrink-0">Kit Number Key:</span>
+        {[...lesson.focusPads]
+          .sort((a, b) => YAMAHA_DTX452K_PADS[a].kitNumber - YAMAHA_DTX452K_PADS[b].kitNumber)
+          .map((padId) => {
+            const cfg = YAMAHA_DTX452K_PADS[padId];
+            return (
+              <div
+                key={padId}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#131B2B] border border-slate-800"
+              >
+                <span
+                  className="px-1.5 py-0.5 rounded font-mono text-[11px] font-extrabold text-white"
+                  style={{ backgroundColor: cfg.color }}
+                >
+                  #{cfg.kitNumber}
+                </span>
+                <span className="font-mono font-bold text-white">{cfg.shortLabel}</span>
+                <span className="text-slate-400">= {cfg.friendlyName}</span>
+              </div>
+            );
+          })}
+      </div>
+
+      {/* Double-Height Oscilloscope & Synchronized Numbered Step Accuracy Canvas */}
       <div className="relative w-full overflow-hidden rounded-lg border border-slate-800/90 bg-[#090D16]">
         <canvas
           ref={canvasRef}
-          className={`w-full block ${compactLandscape ? 'h-[165px]' : 'h-[230px]'}`}
+          className={`w-full block ${compactLandscape ? 'h-[330px]' : 'h-[460px]'}`}
         />
         {countInBeat && (
           <div className="absolute inset-0 bg-[#090D16]/75 backdrop-blur-[2px] flex flex-col items-center justify-center pointer-events-none">

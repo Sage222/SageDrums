@@ -17,7 +17,9 @@ export type LimbId = 'R' | 'L' | 'RF' | 'LF';
 
 export interface DrumPadConfig {
   id: DrumPadId;
+  kitNumber: number;
   name: string;
+  friendlyName: string;
   shortLabel: string;
   zoneDescription: string;
   keyShortcut: string;
