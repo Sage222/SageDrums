@@ -39,6 +39,7 @@ import {
   Disc,
   CheckCircle2,
   RotateCcw,
+  Repeat,
 } from 'lucide-react';
 
 type WorkspaceTab = 'studio' | 'curriculum' | 'metronome' | 'progress';
@@ -65,11 +66,13 @@ export default function App() {
 
   const [bpm, setBpm] = useState<number>(currentLesson.bpm);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [loopForever, setLoopForever] = useState<boolean>(false);
   const [isMicEnabled, setIsMicEnabled] = useState<boolean>(false);
   const [midiDeviceName, setMidiDeviceName] = useState<string | null>(null);
   const [micThreshold, setMicThreshold] = useState<number>(initialSettings.micThreshold);
   const [latencyOffsetMs, setLatencyOffsetMs] = useState<number>(initialSettings.latencyOffsetMs);
-  const [demoAudioEnabled, setDemoAudioEnabled] = useState<boolean>(initialSettings.autoDemoAudio);
+  // Guide drums off by default
+  const [demoAudioEnabled, setDemoAudioEnabled] = useState<boolean>(false);
   const [metronomeClickEnabled, setMetronomeClickEnabled] = useState<boolean>(true);
   const [metronomeVolume, setMetronomeVolume] = useState<number>(initialSettings.metronomeVolume);
 
@@ -104,6 +107,7 @@ export default function App() {
 
   // Mutable refs for high-precision 60fps timing loop
   const isPlayingRef = useRef<boolean>(false);
+  const loopForeverRef = useRef<boolean>(loopForever);
   const bpmRef = useRef<number>(bpm);
   const lessonRef = useRef<Lesson>(currentLesson);
   const demoAudioRef = useRef<boolean>(demoAudioEnabled);
@@ -119,6 +123,9 @@ export default function App() {
   useEffect(() => {
     isPlayingRef.current = isPlaying;
   }, [isPlaying]);
+  useEffect(() => {
+    loopForeverRef.current = loopForever;
+  }, [loopForever]);
   useEffect(() => {
     bpmRef.current = bpm;
   }, [bpm]);
@@ -253,7 +260,6 @@ export default function App() {
           syntheticImpulseRef.current = Math.max(syntheticImpulseRef.current, peakAmp);
         }
       } else {
-        // When hit comes from microphone, flash the expected pads for the nearest step
         const activeLesson = lessonRef.current;
         const nearSlot = scheduledStepsRef.current.find(
           (slot) =>
@@ -354,7 +360,6 @@ export default function App() {
           registerUserHit('mic', undefined, frame.peak);
         }
       } else {
-        // Decay synthetic impulse when using touch/keyboard/MIDI without mic
         if (syntheticImpulseRef.current > 0.01) {
           const amp = syntheticImpulseRef.current;
           const synthBuf = new Float32Array(512);
@@ -381,9 +386,6 @@ export default function App() {
         const totalBars = lesson.barsToComplete;
         const totalSessionSteps = stepsPerBar * totalBars;
 
-        // Compute step duration in ms based on timeSignature & stepsPerBar
-        // In 4/4 with 8 steps: 2 steps per quarter note. With 16 steps: 4 steps per quarter note.
-        // In 12/8 with 12 steps: 3 steps per dotted-quarter pulse.
         const stepsPerBeat =
           lesson.timeSignature === '12/8'
             ? 3
@@ -397,9 +399,9 @@ export default function App() {
 
         const stepDurationMs = (60 / bpmRef.current / stepsPerBeat) * 1000;
 
-        // Schedule steps up to current time
+        // Schedule steps up to current time (indefinitely if loopForeverRef.current is true)
         while (
-          nextGlobalStepToScheduleRef.current < totalSessionSteps &&
+          (loopForeverRef.current || nextGlobalStepToScheduleRef.current < totalSessionSteps) &&
           sessionStartTimeMsRef.current +
             nextGlobalStepToScheduleRef.current * stepDurationMs <=
             nowMs + 15
@@ -421,6 +423,11 @@ export default function App() {
             evaluated: false,
           });
 
+          // Prevent unbounded array growth during Loop Forever
+          if (scheduledStepsRef.current.length > 128) {
+            scheduledStepsRef.current.shift();
+          }
+
           setCurrentStepIndex(stepIdx);
           setCurrentBar(barNum);
 
@@ -433,7 +440,7 @@ export default function App() {
             }
           }
 
-          // Guide Demo Drum Kit Audio (only when mic is off or user wants guide audio)
+          // Guide Demo Drum Kit Audio (only when user explicitly enables Guide Drums)
           if (demoAudioRef.current && patternEvent) {
             patternEvent.pads.forEach((padId) => {
               audioEngine.playPadSound(padId, patternEvent.accent ? 0.85 : 0.6);
@@ -460,12 +467,14 @@ export default function App() {
           }
         }
 
-        // Check if all target steps across all bars of the lesson session have finished
-        const allStepsScheduled = nextGlobalStepToScheduleRef.current >= totalSessionSteps;
-        const lastStepEndTime =
-          sessionStartTimeMsRef.current + totalSessionSteps * stepDurationMs + 160;
-        if (allStepsScheduled && nowMs >= lastStepEndTime) {
-          finalizeAndScoreSession(evaluatedHitsRef.current);
+        // Complete automatically only when NOT in Loop Forever mode
+        if (!loopForeverRef.current) {
+          const allStepsScheduled = nextGlobalStepToScheduleRef.current >= totalSessionSteps;
+          const lastStepEndTime =
+            sessionStartTimeMsRef.current + totalSessionSteps * stepDurationMs + 160;
+          if (allStepsScheduled && nowMs >= lastStepEndTime) {
+            finalizeAndScoreSession(evaluatedHitsRef.current);
+          }
         }
       }
 
@@ -476,7 +485,7 @@ export default function App() {
     return () => cancelAnimationFrame(rafId);
   }, [finalizeAndScoreSession, registerUserHit]);
 
-  // Connect Web MIDI automatically if supported (for Yamaha DTX452K USB-TO-HOST)
+  // Connect Web MIDI automatically if supported
   useEffect(() => {
     audioEngine
       .connectWebMidi((padId, velocity) => {
@@ -487,7 +496,7 @@ export default function App() {
       });
   }, [registerUserHit]);
 
-  // Keyboard shortcuts for all 12 Yamaha DTX452K pads
+  // Keyboard shortcuts for all 13 drum zones (including Ride Bow [R] & Ride Bell [T])
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (
@@ -534,7 +543,6 @@ export default function App() {
       const ok = await audioEngine.startMicrophone();
       if (ok) {
         setIsMicEnabled(true);
-        // Mute demo guide drums when using live microphone so speakers don't self-trigger the mic
         setDemoAudioEnabled(false);
       }
     }
@@ -680,7 +688,21 @@ export default function App() {
                 )}
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Loop Forever Button */}
+                <button
+                  type="button"
+                  onClick={() => setLoopForever((prev) => !prev)}
+                  className={`min-h-[38px] px-3.5 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 ${
+                    loopForever
+                      ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300'
+                      : 'bg-slate-800/90 border-slate-700 text-slate-300 hover:text-white'
+                  }`}
+                >
+                  <Repeat className="w-3.5 h-3.5" />
+                  <span>{loopForever ? 'Loop Forever: ON' : 'Loop Forever'}</span>
+                </button>
+
                 {isPlaying && evaluatedHits.length > 0 && (
                   <button
                     type="button"
@@ -704,7 +726,9 @@ export default function App() {
                   {isPlaying ? <Square className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
                   <span>
                     {isPlaying
-                      ? `Stop (Bar ${currentBar}/${currentLesson.barsToComplete})`
+                      ? `Stop (Bar ${currentBar}/${loopForever ? '∞' : currentLesson.barsToComplete})`
+                      : loopForever
+                      ? 'Start Infinite Loop'
                       : `Evaluate ${currentLesson.barsToComplete} Bars`}
                   </span>
                 </button>
@@ -722,7 +746,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* Two-Zone Studio Layout (Adapts cleanly to Desktop 1440px, Mobile Portrait, and Mobile Landscape) */}
+            {/* Two-Zone Studio Layout */}
             <div
               className={`grid gap-4 items-start ${
                 isCompactLandscape
@@ -740,6 +764,7 @@ export default function App() {
                   lesson={currentLesson}
                   bpm={bpm}
                   isPlaying={isPlaying}
+                  loopForever={loopForever}
                   isMicEnabled={isMicEnabled}
                   micThreshold={micThreshold}
                   latencyOffsetMs={latencyOffsetMs}
@@ -786,6 +811,7 @@ export default function App() {
                   currentStepIndex={currentStepIndex}
                   currentBar={currentBar}
                   isPlaying={isPlaying}
+                  loopForever={loopForever}
                   bpm={bpm}
                   demoAudioEnabled={demoAudioEnabled}
                   metronomeClickEnabled={metronomeClickEnabled}
@@ -799,6 +825,7 @@ export default function App() {
                     saveUserSettings({ autoDemoAudio: next });
                   }}
                   onToggleMetronomeClick={() => setMetronomeClickEnabled((prev) => !prev)}
+                  onToggleLoopForever={() => setLoopForever((prev) => !prev)}
                   onPrevLesson={() => {
                     if (currentLesson.id > 1) handleSelectLesson(currentLesson.id - 1);
                   }}

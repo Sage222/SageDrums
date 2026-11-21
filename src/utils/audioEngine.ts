@@ -17,7 +17,9 @@ class DrumAudioEngine {
 
   public ensureContext(): AudioContext {
     if (!this.ctx) {
-      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const AudioCtx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       this.ctx = new AudioCtx();
     }
     if (this.ctx.state === 'suspended') {
@@ -30,7 +32,7 @@ class DrumAudioEngine {
   }
 
   private createWhiteNoiseBuffer(ctx: AudioContext): AudioBuffer {
-    const bufferSize = ctx.sampleRate * 1.5;
+    const bufferSize = Math.floor(ctx.sampleRate * 3.5);
     const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
     const output = buffer.getChannelData(0);
     for (let i = 0; i < bufferSize; i++) {
@@ -182,7 +184,7 @@ class DrumAudioEngine {
       }
 
       case 'snare_cross': {
-        // Woody TP70S Zone 3 Cross-Stick click
+        // Woody Zone 3 Cross-Stick click
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.type = 'triangle';
@@ -222,7 +224,7 @@ class DrumAudioEngine {
       case 'hihat_open':
       case 'hihat_pedal': {
         if (!this.noiseBuffer) break;
-        const duration = padId === 'hihat_open' ? 0.36 : padId === 'hihat_pedal' ? 0.045 : 0.06;
+        const duration = padId === 'hihat_open' ? 0.42 : padId === 'hihat_pedal' ? 0.045 : 0.06;
         const cutoff = padId === 'hihat_pedal' ? 5800 : 7200;
 
         const noise = ctx.createBufferSource();
@@ -244,53 +246,147 @@ class DrumAudioEngine {
       }
 
       case 'crash': {
+        // Rich, long 2.8-second multi-layer metallic studio crash cymbal
         if (!this.noiseBuffer) break;
-        const noise = ctx.createBufferSource();
-        noise.buffer = this.noiseBuffer;
-        const filter = ctx.createBiquadFilter();
-        filter.type = 'bandpass';
-        filter.frequency.setValueAtTime(4800, now);
-        filter.Q.setValueAtTime(0.5, now);
+        const crashDuration = 2.75;
 
-        const gain = ctx.createGain();
-        gain.gain.setValueAtTime(0.75 * vol, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.85);
+        // 1. Inharmonic metallic bronze partials
+        const partials = [415, 622, 895, 1245, 1780, 2540];
+        const partialBus = ctx.createBiquadFilter();
+        partialBus.type = 'highpass';
+        partialBus.frequency.setValueAtTime(1600, now);
+        const partialGain = ctx.createGain();
+        partialGain.gain.setValueAtTime(0.18 * vol, now);
+        partialGain.gain.exponentialRampToValueAtTime(0.04 * vol, now + 0.35);
+        partialGain.gain.exponentialRampToValueAtTime(0.0005, now + 2.1);
+        partialBus.connect(partialGain);
+        partialGain.connect(ctx.destination);
 
-        noise.connect(filter);
-        filter.connect(gain);
-        gain.connect(ctx.destination);
-        noise.start(now);
-        noise.stop(now + 0.9);
+        partials.forEach((freq, idx) => {
+          const osc = ctx.createOscillator();
+          osc.type = idx % 2 === 0 ? 'square' : 'sawtooth';
+          osc.frequency.setValueAtTime(freq, now);
+          osc.connect(partialBus);
+          osc.start(now);
+          osc.stop(now + 2.15);
+        });
+
+        // 2. Warm bronze body wash (Bandpass 3300 Hz -> 2200 Hz sweep over 2.75s)
+        const bodyNoise = ctx.createBufferSource();
+        bodyNoise.buffer = this.noiseBuffer;
+        const bodyFilter = ctx.createBiquadFilter();
+        bodyFilter.type = 'bandpass';
+        bodyFilter.frequency.setValueAtTime(3600, now);
+        bodyFilter.frequency.exponentialRampToValueAtTime(2100, now + crashDuration);
+        bodyFilter.Q.setValueAtTime(0.55, now);
+
+        const bodyGain = ctx.createGain();
+        bodyGain.gain.setValueAtTime(0.01, now);
+        bodyGain.gain.linearRampToValueAtTime(0.85 * vol, now + 0.012);
+        bodyGain.gain.exponentialRampToValueAtTime(0.28 * vol, now + 0.45);
+        bodyGain.gain.exponentialRampToValueAtTime(0.0008, now + crashDuration);
+
+        bodyNoise.connect(bodyFilter);
+        bodyFilter.connect(bodyGain);
+        bodyGain.connect(ctx.destination);
+        bodyNoise.start(now);
+        bodyNoise.stop(now + crashDuration + 0.05);
+
+        // 3. High air shimmer sizzle (Highpass 6400 Hz over 2.4s)
+        const airNoise = ctx.createBufferSource();
+        airNoise.buffer = this.noiseBuffer;
+        const airFilter = ctx.createBiquadFilter();
+        airFilter.type = 'highpass';
+        airFilter.frequency.setValueAtTime(6400, now);
+
+        const airGain = ctx.createGain();
+        airGain.gain.setValueAtTime(0.55 * vol, now);
+        airGain.gain.exponentialRampToValueAtTime(0.14 * vol, now + 0.4);
+        airGain.gain.exponentialRampToValueAtTime(0.0005, now + 2.4);
+
+        airNoise.connect(airFilter);
+        airFilter.connect(airGain);
+        airGain.connect(ctx.destination);
+        airNoise.start(now);
+        airNoise.stop(now + 2.45);
         break;
       }
 
       case 'ride': {
-        // Metallic ping + shimmer wash
-        const pingOsc = ctx.createOscillator();
-        const pingGain = ctx.createGain();
-        pingOsc.type = 'sine';
-        pingOsc.frequency.setValueAtTime(2950, now);
-        pingGain.gain.setValueAtTime(0.28 * vol, now);
-        pingGain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
-        pingOsc.connect(pingGain);
-        pingGain.connect(ctx.destination);
-        pingOsc.start(now);
-        pingOsc.stop(now + 0.26);
+        // Ride Bow: Warm woody tip attack + subtle low-bell overtone + smooth metallic wash
+        const bowOsc1 = ctx.createOscillator();
+        const bowOsc2 = ctx.createOscillator();
+        const bowGain = ctx.createGain();
+        bowOsc1.type = 'sine';
+        bowOsc2.type = 'triangle';
+        bowOsc1.frequency.setValueAtTime(1840, now);
+        bowOsc2.frequency.setValueAtTime(2720, now);
+
+        bowGain.gain.setValueAtTime(0.22 * vol, now);
+        bowGain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+        bowOsc1.connect(bowGain);
+        bowOsc2.connect(bowGain);
+        bowGain.connect(ctx.destination);
+        bowOsc1.start(now);
+        bowOsc2.start(now);
+        bowOsc1.stop(now + 0.24);
+        bowOsc2.stop(now + 0.24);
 
         if (this.noiseBuffer) {
           const noise = ctx.createBufferSource();
           noise.buffer = this.noiseBuffer;
           const filter = ctx.createBiquadFilter();
-          filter.type = 'highpass';
-          filter.frequency.setValueAtTime(5400, now);
+          filter.type = 'bandpass';
+          filter.frequency.setValueAtTime(5200, now);
+          filter.Q.setValueAtTime(0.75, now);
           const gain = ctx.createGain();
-          gain.gain.setValueAtTime(0.38 * vol, now);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.48);
+          gain.gain.setValueAtTime(0.45 * vol, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.72);
           noise.connect(filter);
           filter.connect(gain);
           gain.connect(ctx.destination);
           noise.start(now);
-          noise.stop(now + 0.5);
+          noise.stop(now + 0.75);
+        }
+        break;
+      }
+
+      case 'ride_bell': {
+        // Ride Bell: Distinct, bright, cutting metallic bell dome ping with long 1.15s ring
+        const bellPartials = [
+          { freq: 1520, amp: 0.42, decay: 1.15, type: 'sine' as OscillatorType },
+          { freq: 3110, amp: 0.36, decay: 0.95, type: 'triangle' as OscillatorType },
+          { freq: 4680, amp: 0.22, decay: 0.65, type: 'sine' as OscillatorType },
+        ];
+
+        bellPartials.forEach((p) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = p.type;
+          osc.frequency.setValueAtTime(p.freq, now);
+          gain.gain.setValueAtTime(p.amp * vol, now);
+          gain.gain.exponentialRampToValueAtTime(0.0008, now + p.decay);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now);
+          osc.stop(now + p.decay + 0.02);
+        });
+
+        // Subtle metallic stick transient on the bell dome
+        if (this.noiseBuffer) {
+          const noise = ctx.createBufferSource();
+          noise.buffer = this.noiseBuffer;
+          const filter = ctx.createBiquadFilter();
+          filter.type = 'highpass';
+          filter.frequency.setValueAtTime(7500, now);
+          const gain = ctx.createGain();
+          gain.gain.setValueAtTime(0.2 * vol, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+          noise.connect(filter);
+          filter.connect(gain);
+          gain.connect(ctx.destination);
+          noise.start(now);
+          noise.stop(now + 0.2);
         }
         break;
       }
@@ -341,10 +437,6 @@ class DrumAudioEngine {
     return Boolean(this.micStream && this.analyser);
   }
 
-  /**
-   * Samples the current microphone audio frame, returns waveform samples, peak amplitude,
-   * and whether a transient drum hit onset occurred on this frame.
-   */
   public sampleMicrophoneFrame(threshold: number): {
     waveform: Float32Array | null;
     peak: number;
@@ -374,7 +466,7 @@ class DrumAudioEngine {
     const rms = Math.sqrt(sumSq / len);
 
     const nowMs = performance.now();
-    const minCooldownMs = 70; // Prevents double triggering from single pad decay
+    const minCooldownMs = 70;
     const risingSlope = peak - this.prevRms;
     const onsetDetected =
       peak >= threshold &&
@@ -412,9 +504,6 @@ class DrumAudioEngine {
     };
   }
 
-  /**
-   * Connects Web MIDI (for direct USB connection to Yamaha DTX452K on desktop or Android USB-OTG)
-   */
   public async connectWebMidi(onPadHit: (padId: DrumPadId, velocity: number) => void): Promise<string | null> {
     if (!('requestMIDIAccess' in navigator)) {
       return null;
@@ -431,7 +520,6 @@ class DrumAudioEngine {
             const status = event.data[0] & 0xf0;
             const note = event.data[1];
             const velocity = event.data[2];
-            // Note On with velocity > 0
             if (status === 0x90 && velocity > 0) {
               const matchedPad = (Object.keys(YAMAHA_DTX452K_PADS) as DrumPadId[]).find((padKey) =>
                 YAMAHA_DTX452K_PADS[padKey].midiNotes.includes(note)

@@ -35,27 +35,21 @@ export const YamahaDTX452KKit: React.FC<YamahaDTX452KKitProps> = ({
 
   return (
     <div className="relative w-full select-none touch-manipulation">
-      {/* Top Kit Specs Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-2 px-1 text-xs text-slate-400">
-        <div className="flex items-center gap-2">
-          <span className="font-semibold text-slate-200">Yamaha DTX452K Layout</span>
-          <span aria-hidden="true">·</span>
-          <span>TP70S 3-Zone Snare</span>
-          <span aria-hidden="true">·</span>
-          <span>KP65 + FP6110A</span>
-          <span aria-hidden="true">·</span>
-          <span>HH65 Controller</span>
+      {/* Top Kit Specs Bar - Fixed Single-Line Height so it never wraps or bounces */}
+      <div className="h-6 flex items-center justify-between gap-3 mb-2 px-1 text-xs text-slate-400 overflow-hidden whitespace-nowrap">
+        <div className="flex items-center gap-2 min-w-0 overflow-hidden">
+          <span className="font-semibold text-slate-200 shrink-0">Yamaha DTX452K Layout</span>
+          <span aria-hidden="true" className="hidden sm:inline shrink-0">·</span>
+          <span className="hidden sm:inline truncate">3-Zone Snare · Ride Bow &amp; Bell · Dual Foot Pedals</span>
         </div>
-        <div className="flex items-center gap-2 font-mono text-xs text-amber-400">
-          <span>{dtxKitPreset}</span>
-          <span aria-hidden="true" className="text-slate-600">·</span>
+        <div className="flex items-center gap-2 font-mono text-xs text-amber-400 shrink-0">
+          <span className="hidden md:inline">{dtxKitPreset}</span>
+          <span aria-hidden="true" className="hidden md:inline text-slate-600">·</span>
           <span className="tabular-nums">{bpm} BPM</span>
-          {activeSticking && (
-            <>
-              <span aria-hidden="true" className="text-slate-600">·</span>
-              <span className="text-sky-300 font-semibold">Sticking: {activeSticking}</span>
-            </>
-          )}
+          <span aria-hidden="true" className="text-slate-600">·</span>
+          <span className="text-sky-300 font-semibold inline-block min-w-[118px] text-right tabular-nums">
+            Sticking: {activeSticking || '—'}
+          </span>
         </div>
       </div>
 
@@ -102,7 +96,7 @@ export const YamahaDTX452KKit: React.FC<YamahaDTX452KKitProps> = ({
             strokeDasharray="6 6"
           />
           <text x="60" y="446" fill="#475569" fontSize="11" fontFamily="Plus Jakarta Sans, sans-serif">
-            FLOOR PEDAL ZONE (HH65 LEFT FOOT · KP65 + FP6110A RIGHT FOOT)
+            FLOOR PEDAL ZONE (HI-HAT PEDAL LEFT FOOT · KICK DRUM RIGHT FOOT)
           </text>
 
           {/* Yamaha DTX452K Aluminum Rack Tubes */}
@@ -123,7 +117,7 @@ export const YamahaDTX452KKit: React.FC<YamahaDTX452KKitProps> = ({
             <line x1="575" y1="158" x2="610" y2="85" strokeWidth="5" stroke="#64748B" />
           </g>
 
-          {/* DTX402 Sound Module (Mounted on Left Rack Wing) */}
+          {/* Drum Sound Module (Mounted on Left Rack Wing) */}
           <g transform="translate(185, 165)">
             <rect
               x="0"
@@ -137,7 +131,7 @@ export const YamahaDTX452KKit: React.FC<YamahaDTX452KKitProps> = ({
             />
             <rect x="8" y="8" width="60" height="16" rx="3" fill="#090D16" stroke="#38BDF8" strokeWidth="0.8" />
             <text x="38" y="19" textAnchor="middle" fill="#38BDF8" fontSize="8.5" fontFamily="JetBrains Mono, monospace" fontWeight="700">
-              DTX402
+              MODULE
             </text>
             <circle cx="18" cy="36" r="4" fill="#F59E0B" />
             <circle cx="32" cy="36" r="3.5" fill="#475569" />
@@ -146,7 +140,7 @@ export const YamahaDTX452KKit: React.FC<YamahaDTX452KKitProps> = ({
           </g>
 
           {/* ============================================================== */}
-          {/* 1. 10" CRASH CYMBAL PAD (Choke Enabled) - Top Left             */}
+          {/* 1. CRASH CYMBAL PAD (Choke Enabled) - Top Left                 */}
           {/* ============================================================== */}
           <g
             transform="translate(215, 76)"
@@ -162,12 +156,11 @@ export const YamahaDTX452KKit: React.FC<YamahaDTX452KKitProps> = ({
               stroke={isHit('crash') ? '#FBBF24' : isTarget('crash') ? '#F59E0B' : isFocus('crash') ? '#64748B' : '#334155'}
               strokeWidth={isHit('crash') ? '4.5' : isTarget('crash') ? '3' : '2'}
             />
-            {/* Yamaha Cymbal Bow Grooves & Choke Edge Arc */}
             <circle r="44" fill="none" stroke="#334155" strokeWidth="1" />
             <path d="M -42 42 A 60 60 0 0 0 42 42" fill="none" stroke="#F59E0B" strokeWidth="3" strokeOpacity="0.65" />
             <circle r="13" fill="#1E293B" stroke="#475569" strokeWidth="1.5" />
-            <text y="-19" textAnchor="middle" fill="#F8FAFC" fontSize="12" fontWeight="700">
-              10&quot; CRASH
+            <text y="-21" textAnchor="middle" fill="#F8FAFC" fontSize="12" fontWeight="700">
+              CRASH
             </text>
             <text y="28" textAnchor="middle" fill="#FBBF24" fontSize="9.5" fontFamily="JetBrains Mono, monospace">
               [E] · CHOKE EDGE
@@ -175,7 +168,7 @@ export const YamahaDTX452KKit: React.FC<YamahaDTX452KKitProps> = ({
           </g>
 
           {/* ============================================================== */}
-          {/* 2. 10" HI-HAT PAD (Closed Bow + Open Rim Toggle) - Mid Left    */}
+          {/* 2. HI-HAT PAD (Closed Bow + Open Rim Toggle) - Mid Left        */}
           {/* ============================================================== */}
           <g transform="translate(118, 215)">
             {/* Outer Open Hi-Hat Ring */}
@@ -218,7 +211,7 @@ export const YamahaDTX452KKit: React.FC<YamahaDTX452KKitProps> = ({
               />
               <circle r="10" fill="#0F172A" stroke="#475569" strokeWidth="1.5" />
               <text y="-14" textAnchor="middle" fill="#F8FAFC" fontSize="11.5" fontWeight="700">
-                10&quot; HI-HAT
+                HI-HAT
               </text>
               <text y="23" textAnchor="middle" fill="#38BDF8" fontSize="9.5" fontFamily="JetBrains Mono, monospace">
                 CLOSED [Q]
@@ -227,7 +220,7 @@ export const YamahaDTX452KKit: React.FC<YamahaDTX452KKitProps> = ({
           </g>
 
           {/* ============================================================== */}
-          {/* 3. 7.5" TOM 1 (HIGH TOM) - Upper Center-Left                   */}
+          {/* 3. TOM 1 (HIGH TOM) - Upper Center-Left                        */}
           {/* ============================================================== */}
           <g
             transform="translate(348, 128)"
@@ -245,7 +238,7 @@ export const YamahaDTX452KKit: React.FC<YamahaDTX452KKitProps> = ({
             />
             <circle r="38" fill="none" stroke="#1E293B" strokeWidth="1.5" />
             <text y="-4" textAnchor="middle" fill="#F8FAFC" fontSize="12" fontWeight="700">
-              TOM 1 (7.5&quot;)
+              TOM 1
             </text>
             <text y="14" textAnchor="middle" fill="#34D399" fontSize="9.5" fontFamily="JetBrains Mono, monospace">
               HIGH [U]
@@ -253,7 +246,7 @@ export const YamahaDTX452KKit: React.FC<YamahaDTX452KKitProps> = ({
           </g>
 
           {/* ============================================================== */}
-          {/* 4. 7.5" TOM 2 (MID TOM) - Upper Center-Right                   */}
+          {/* 4. TOM 2 (MID TOM) - Upper Center-Right                        */}
           {/* ============================================================== */}
           <g
             transform="translate(472, 128)"
@@ -271,7 +264,7 @@ export const YamahaDTX452KKit: React.FC<YamahaDTX452KKitProps> = ({
             />
             <circle r="38" fill="none" stroke="#1E293B" strokeWidth="1.5" />
             <text y="-4" textAnchor="middle" fill="#F8FAFC" fontSize="12" fontWeight="700">
-              TOM 2 (7.5&quot;)
+              TOM 2
             </text>
             <text y="14" textAnchor="middle" fill="#6EE7B7" fontSize="9.5" fontFamily="JetBrains Mono, monospace">
               MID [I]
@@ -279,34 +272,63 @@ export const YamahaDTX452KKit: React.FC<YamahaDTX452KKitProps> = ({
           </g>
 
           {/* ============================================================== */}
-          {/* 5. 10" RIDE CYMBAL PAD - Top Right                             */}
+          {/* 5. RIDE CYMBAL PAD (Outer Bow [R] + Center Bell [T]) - Right   */}
           {/* ============================================================== */}
-          <g
-            transform="translate(615, 92)"
-            onPointerDown={(e) => handlePadPointerDown(e, 'ride')}
-            className="cursor-pointer"
-          >
-            {isTarget('ride') && (
+          <g transform="translate(615, 92)">
+            {(isTarget('ride') || isTarget('ride_bell')) && (
               <circle r="72" fill="none" stroke="#EAB308" strokeWidth="3.5" strokeDasharray="8 4" />
             )}
-            <circle
-              r="64"
-              fill="url(#cymbalGrad)"
-              stroke={isHit('ride') ? '#FDE047' : isTarget('ride') ? '#EAB308' : isFocus('ride') ? '#64748B' : '#334155'}
-              strokeWidth={isHit('ride') ? '4.5' : isTarget('ride') ? '3' : '2'}
-            />
-            <circle r="46" fill="none" stroke="#334155" strokeWidth="1" />
-            <circle r="15" fill="#1E293B" stroke="#475569" strokeWidth="1.5" />
-            <text y="-22" textAnchor="middle" fill="#F8FAFC" fontSize="12.5" fontWeight="700">
-              10&quot; RIDE
-            </text>
-            <text y="32" textAnchor="middle" fill="#FDE047" fontSize="9.5" fontFamily="JetBrains Mono, monospace">
-              BOW / BELL [R]
-            </text>
+
+            {/* Outer Ride Bow Zone */}
+            <g onPointerDown={(e) => handlePadPointerDown(e, 'ride')} className="cursor-pointer">
+              <circle
+                r="64"
+                fill="url(#cymbalGrad)"
+                stroke={
+                  isHit('ride')
+                    ? '#FDE047'
+                    : isTarget('ride')
+                    ? '#EAB308'
+                    : isFocus('ride')
+                    ? '#64748B'
+                    : '#334155'
+                }
+                strokeWidth={isHit('ride') ? '4.5' : isTarget('ride') ? '3' : '2'}
+              />
+              <circle r="46" fill="none" stroke="#334155" strokeWidth="1" />
+              <text y="-36" textAnchor="middle" fill="#F8FAFC" fontSize="12" fontWeight="700">
+                RIDE
+              </text>
+              <text y="44" textAnchor="middle" fill="#FDE047" fontSize="9.5" fontFamily="JetBrains Mono, monospace">
+                BOW [R]
+              </text>
+            </g>
+
+            {/* Center Raised Ride Bell Dome Zone */}
+            <g onPointerDown={(e) => handlePadPointerDown(e, 'ride_bell')} className="cursor-pointer">
+              <circle
+                r="26"
+                fill={isHit('ride_bell') ? '#CA8A04' : isTarget('ride_bell') ? '#713F12' : '#1E293B'}
+                stroke={
+                  isHit('ride_bell')
+                    ? '#FEF08A'
+                    : isTarget('ride_bell')
+                    ? '#FACC15'
+                    : '#64748B'
+                }
+                strokeWidth={isHit('ride_bell') ? '4' : isTarget('ride_bell') ? '3' : '2'}
+              />
+              <text y="-2" textAnchor="middle" fill="#FFFFFF" fontSize="9.5" fontWeight="700">
+                BELL
+              </text>
+              <text y="11" textAnchor="middle" fill="#FEF08A" fontSize="8.5" fontFamily="JetBrains Mono, monospace">
+                [T]
+              </text>
+            </g>
           </g>
 
           {/* ============================================================== */}
-          {/* 6. TP70S 7.5" 3-ZONE SNARE PAD (Head, Rimshot Z2, Cross Z3)    */}
+          {/* 6. 3-ZONE SNARE PAD (Head Z1, Rimshot Z2, Cross-Stick Z3)      */}
           {/* ============================================================== */}
           <g transform="translate(255, 285)">
             {(isTarget('snare') || isTarget('snare_rim') || isTarget('snare_cross')) && (
@@ -339,7 +361,7 @@ export const YamahaDTX452KKit: React.FC<YamahaDTX452KKitProps> = ({
               </text>
             </g>
 
-            {/* Zone 1: Center Cellular Rubber Snare Head */}
+            {/* Zone 1: Center Snare Head */}
             <g onPointerDown={(e) => handlePadPointerDown(e, 'snare')} className="cursor-pointer">
               <circle
                 r="47"
@@ -356,19 +378,19 @@ export const YamahaDTX452KKit: React.FC<YamahaDTX452KKitProps> = ({
                 strokeWidth={isHit('snare') ? '4.5' : isTarget('snare') ? '3' : '2'}
               />
               <text y="-8" textAnchor="middle" fill="#FFFFFF" fontSize="12.5" fontWeight="700">
-                TP70S SNARE
+                SNARE
               </text>
               <text y="7" textAnchor="middle" fill="#FB923C" fontSize="9.5" fontFamily="JetBrains Mono, monospace">
                 Z1 HEAD [S]
               </text>
               <text y="21" textAnchor="middle" fill="#94A3B8" fontSize="8">
-                7.5&quot; 3-Zone Pad
+                3-Zone Pad
               </text>
             </g>
           </g>
 
           {/* ============================================================== */}
-          {/* 7. 7.5" TOM 3 (FLOOR TOM) - Lower Right                        */}
+          {/* 7. TOM 3 (FLOOR TOM) - Lower Right                             */}
           {/* ============================================================== */}
           <g
             transform="translate(578, 272)"
@@ -386,7 +408,7 @@ export const YamahaDTX452KKit: React.FC<YamahaDTX452KKitProps> = ({
             />
             <circle r="41" fill="none" stroke="#1E293B" strokeWidth="1.5" />
             <text y="-4" textAnchor="middle" fill="#F8FAFC" fontSize="12" fontWeight="700">
-              TOM 3 (7.5&quot;)
+              TOM 3
             </text>
             <text y="14" textAnchor="middle" fill="#34D399" fontSize="9.5" fontFamily="JetBrains Mono, monospace">
               FLOOR [O]
@@ -394,7 +416,7 @@ export const YamahaDTX452KKit: React.FC<YamahaDTX452KKitProps> = ({
           </g>
 
           {/* ============================================================== */}
-          {/* 8. HH65 HI-HAT CONTROLLER PEDAL - Bottom Left Floor            */}
+          {/* 8. HI-HAT CONTROLLER PEDAL - Bottom Left Floor                 */}
           {/* ============================================================== */}
           <g
             transform="translate(118, 392)"
@@ -431,8 +453,8 @@ export const YamahaDTX452KKit: React.FC<YamahaDTX452KKitProps> = ({
               strokeWidth={isHit('hihat_pedal') ? '4' : '2'}
             />
             <rect x="-24" y="-28" width="48" height="36" rx="5" fill="#0F172A" stroke="#334155" strokeWidth="1" />
-            <text y="-10" textAnchor="middle" fill="#F8FAFC" fontSize="10.5" fontWeight="700">
-              HH65 PEDAL
+            <text y="-10" textAnchor="middle" fill="#F8FAFC" fontSize="10" fontWeight="700">
+              HI-HAT PEDAL
             </text>
             <text y="4" textAnchor="middle" fill="#38BDF8" fontSize="8.5" fontFamily="JetBrains Mono, monospace">
               LF CHICK [Z]
@@ -443,7 +465,7 @@ export const YamahaDTX452KKit: React.FC<YamahaDTX452KKitProps> = ({
           </g>
 
           {/* ============================================================== */}
-          {/* 9. KP65 KICK TOWER + FP6110A PEDAL - Bottom Center-Right Floor */}
+          {/* 9. KICK DRUM PAD & PEDAL - Bottom Center-Right Floor           */}
           {/* ============================================================== */}
           <g
             transform="translate(415, 382)"
@@ -481,22 +503,21 @@ export const YamahaDTX452KKit: React.FC<YamahaDTX452KKitProps> = ({
               }
               strokeWidth={isHit('kick') ? '4.5' : isTarget('kick') ? '3' : '2.5'}
             />
-            {/* KP65 circular sensor target */}
             <circle cx="0" cy="-10" r="24" fill="#0F172A" stroke="#EC4899" strokeWidth="1.8" />
             <circle cx="0" cy="-10" r="9" fill="#EC4899" fillOpacity="0.35" />
             <text y="-7" textAnchor="middle" fill="#FFFFFF" fontSize="11.5" fontWeight="700">
-              KP65 KICK
+              KICK DRUM
             </text>
             <text y="25" textAnchor="middle" fill="#F472B6" fontSize="9.5" fontFamily="JetBrains Mono, monospace" fontWeight="600">
-              FP6110A · RF [SPACE]
+              RIGHT FOOT [SPACE]
             </text>
           </g>
         </svg>
       </div>
 
       {/* Quick Touch Trigger Strip for Mobile Thumb Ergonomics */}
-      <div className="grid grid-cols-4 sm:grid-cols-6 gap-1.5 mt-2">
-        {(['hihat', 'snare', 'kick', 'tom1', 'tom3', 'crash'] as DrumPadId[]).map((padId) => {
+      <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5 mt-2">
+        {(['hihat', 'snare', 'kick', 'tom1', 'ride', 'ride_bell', 'crash'] as DrumPadId[]).map((padId) => {
           const cfg = YAMAHA_DTX452K_PADS[padId];
           const active = isTarget(padId);
           const hit = isHit(padId);
@@ -515,9 +536,11 @@ export const YamahaDTX452KKit: React.FC<YamahaDTX452KKitProps> = ({
             >
               <div className="flex items-center justify-between w-full text-[11px] font-semibold">
                 <span className="truncate">{cfg.shortLabel}</span>
-                <span className="font-mono text-[10px] text-slate-400">[{cfg.keyShortcut}]</span>
+                <span className="font-mono text-[10px] text-slate-400">
+                  [{cfg.keyShortcut === 'Space' ? 'SPC' : cfg.keyShortcut}]
+                </span>
               </div>
-              <span className="text-[10px] text-slate-400 truncate">{cfg.name.split(' ')[0]}</span>
+              <span className="text-[10px] text-slate-400 truncate">{cfg.name}</span>
             </button>
           );
         })}

@@ -1,6 +1,7 @@
 export type DrumPadId =
   | 'crash'
   | 'ride'
+  | 'ride_bell'
   | 'hihat'
   | 'hihat_open'
   | 'hihat_pedal'
@@ -18,7 +19,6 @@ export interface DrumPadConfig {
   id: DrumPadId;
   name: string;
   shortLabel: string;
-  yamahaModel: string;
   zoneDescription: string;
   keyShortcut: string;
   midiNotes: number[];
@@ -49,11 +49,10 @@ export interface Lesson {
   timeSignature: '4/4' | '3/4' | '6/8' | '12/8' | '5/4' | '7/8';
   stepsPerBar: number; // e.g. 8 for 8th notes in 4/4, 16 for 16th notes in 4/4, 12 for 12/8
   subdivisionLabel: string; // e.g. "8th Notes", "16th Notes", "Triplets"
-  barsToComplete: number; // Number of bars in a scored evaluation session
-  dtxKitPreset: string; // Recommended Yamaha DTX452K module kit
+  barsToComplete: number; // 20 bars per lesson
+  dtxKitPreset: string;
   focusPads: DrumPadId[];
   coachingSteps: string[];
-  dtxHardwareTip: string;
   pattern: LessonStepEvent[];
 }
 

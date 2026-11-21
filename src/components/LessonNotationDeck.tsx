@@ -1,13 +1,14 @@
 import React from 'react';
 import { DrumPadId, EvaluatedStepHit, Lesson } from '../types/drums';
 import { YAMAHA_DTX452K_PADS, getStepCountLabel } from '../data/dtx452kConfig';
-import { ChevronLeft, ChevronRight, Volume2, VolumeX, CheckCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Volume2, VolumeX, CheckCircle, Repeat } from 'lucide-react';
 
 interface LessonNotationDeckProps {
   lesson: Lesson;
   currentStepIndex: number;
   currentBar: number;
   isPlaying: boolean;
+  loopForever: boolean;
   bpm: number;
   demoAudioEnabled: boolean;
   metronomeClickEnabled: boolean;
@@ -17,6 +18,7 @@ interface LessonNotationDeckProps {
   onChangeBpm: (newBpm: number) => void;
   onToggleDemoAudio: () => void;
   onToggleMetronomeClick: () => void;
+  onToggleLoopForever: () => void;
   onPrevLesson: () => void;
   onNextLesson: () => void;
   onTriggerPad: (padId: DrumPadId) => void;
@@ -27,6 +29,7 @@ export const LessonNotationDeck: React.FC<LessonNotationDeckProps> = ({
   currentStepIndex,
   currentBar,
   isPlaying,
+  loopForever,
   bpm,
   demoAudioEnabled,
   metronomeClickEnabled,
@@ -36,6 +39,7 @@ export const LessonNotationDeck: React.FC<LessonNotationDeckProps> = ({
   onChangeBpm,
   onToggleDemoAudio,
   onToggleMetronomeClick,
+  onToggleLoopForever,
   onPrevLesson,
   onNextLesson,
   onTriggerPad,
@@ -126,11 +130,11 @@ export const LessonNotationDeck: React.FC<LessonNotationDeckProps> = ({
             className="w-full accent-amber-500 cursor-pointer"
           />
 
-          <div className="grid grid-cols-2 gap-2 pt-1">
+          <div className="grid grid-cols-3 gap-2 pt-1">
             <button
               type="button"
               onClick={onToggleDemoAudio}
-              className={`min-h-[40px] px-3 py-1.5 rounded-lg border text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap ${
+              className={`min-h-[40px] px-2.5 py-1.5 rounded-lg border text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap ${
                 demoAudioEnabled
                   ? 'bg-sky-500/15 border-sky-500/60 text-sky-300'
                   : 'bg-[#0B0F17] border-slate-800 text-slate-400'
@@ -143,7 +147,7 @@ export const LessonNotationDeck: React.FC<LessonNotationDeckProps> = ({
             <button
               type="button"
               onClick={onToggleMetronomeClick}
-              className={`min-h-[40px] px-3 py-1.5 rounded-lg border text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap ${
+              className={`min-h-[40px] px-2.5 py-1.5 rounded-lg border text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap ${
                 metronomeClickEnabled
                   ? 'bg-amber-500/15 border-amber-500/60 text-amber-300'
                   : 'bg-[#0B0F17] border-slate-800 text-slate-400'
@@ -156,6 +160,19 @@ export const LessonNotationDeck: React.FC<LessonNotationDeckProps> = ({
               )}
               <span>Metronome: {metronomeClickEnabled ? 'ON' : 'OFF'}</span>
             </button>
+
+            <button
+              type="button"
+              onClick={onToggleLoopForever}
+              className={`min-h-[40px] px-2.5 py-1.5 rounded-lg border text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap ${
+                loopForever
+                  ? 'bg-emerald-500/15 border-emerald-500/60 text-emerald-300'
+                  : 'bg-[#0B0F17] border-slate-800 text-slate-400'
+              }`}
+            >
+              <Repeat className="w-3.5 h-3.5" />
+              <span>Loop Forever: {loopForever ? 'ON' : 'OFF'}</span>
+            </button>
           </div>
         </div>
       </div>
@@ -167,7 +184,7 @@ export const LessonNotationDeck: React.FC<LessonNotationDeckProps> = ({
             Step Pattern Matrix ({lesson.subdivisionLabel})
           </span>
           <span className="font-mono tabular-nums">
-            Bar {currentBar} / {lesson.barsToComplete}
+            Bar {currentBar} / {loopForever ? '∞' : lesson.barsToComplete}
           </span>
         </div>
 
@@ -240,7 +257,6 @@ export const LessonNotationDeck: React.FC<LessonNotationDeckProps> = ({
                       const hasHit = Boolean(stepEvent?.pads.includes(padId));
                       const isCurrent = isPlaying && currentStepIndex === sIdx;
 
-                      // Check if this step was evaluated in current bar
                       const evalRecord = [...recentHits]
                         .reverse()
                         .find(
@@ -289,7 +305,7 @@ export const LessonNotationDeck: React.FC<LessonNotationDeckProps> = ({
         </div>
       </div>
 
-      {/* Step-by-Step Coaching Instructions & DTX452K Hardware Tip */}
+      {/* Step-by-Step Coaching Instructions (Hardware tips removed) */}
       <div className="rounded-xl bg-[#111827] border border-slate-800 p-4 space-y-3">
         <div className="text-xs font-semibold text-slate-200">
           Step-by-Step Technique Guide
@@ -304,11 +320,6 @@ export const LessonNotationDeck: React.FC<LessonNotationDeckProps> = ({
             </li>
           ))}
         </ol>
-
-        <div className="pt-3 border-t border-slate-800/90 text-xs text-slate-400">
-          <strong className="text-sky-300 font-semibold">Yamaha DTX452K Hardware Tip: </strong>
-          <span>{lesson.dtxHardwareTip}</span>
-        </div>
       </div>
     </div>
   );

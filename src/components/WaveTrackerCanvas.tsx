@@ -7,6 +7,7 @@ interface WaveTrackerCanvasProps {
   lesson: Lesson;
   bpm: number;
   isPlaying: boolean;
+  loopForever: boolean;
   isMicEnabled: boolean;
   micThreshold: number;
   latencyOffsetMs: number;
@@ -26,6 +27,7 @@ export const WaveTrackerCanvas: React.FC<WaveTrackerCanvasProps> = ({
   lesson,
   bpm,
   isPlaying,
+  loopForever,
   isMicEnabled,
   micThreshold,
   latencyOffsetMs,
@@ -272,8 +274,8 @@ export const WaveTrackerCanvas: React.FC<WaveTrackerCanvasProps> = ({
   return (
     <div className="w-full rounded-xl bg-[#111827] border border-slate-800 p-3">
       {/* Header Row: Wave Status & Live Timing Readout */}
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-        <div className="flex items-center gap-3">
+      <div className="min-h-[40px] flex items-center justify-between gap-2 mb-2 overflow-hidden whitespace-nowrap">
+        <div className="flex items-center gap-3 min-w-0">
           <button
             type="button"
             onClick={onToggleMic}
@@ -287,21 +289,23 @@ export const WaveTrackerCanvas: React.FC<WaveTrackerCanvasProps> = ({
             <span>{isMicEnabled ? 'Mic Feedback: Active' : 'Enable Mic Feedback'}</span>
           </button>
 
-          <div className="text-xs text-slate-400 hidden sm:flex items-center gap-2">
+          <div className="text-xs text-slate-400 hidden sm:flex items-center gap-2 shrink-0">
             <span>Wave Peak:</span>
-            <span className="font-mono tabular-nums text-slate-200">
+            <span className="font-mono tabular-nums text-slate-200 inline-block w-9 text-right">
               {(latestPeak * 100).toFixed(0)}%
             </span>
             <span aria-hidden="true">·</span>
             <span>
               Bar <strong className="font-mono tabular-nums text-slate-200">{currentBar}</strong> /{' '}
-              <span className="font-mono tabular-nums">{lesson.barsToComplete}</span>
+              <span className="font-mono tabular-nums">
+                {loopForever ? '∞' : lesson.barsToComplete}
+              </span>
             </span>
           </div>
         </div>
 
         {/* Semantic Non-Hue-Only Timing Accuracy Readout */}
-        <div className={`font-mono text-xs font-bold tabular-nums ${feedbackDisplay.colorClass}`}>
+        <div className={`font-mono text-xs font-bold tabular-nums shrink-0 ${feedbackDisplay.colorClass}`}>
           {feedbackDisplay.text}
         </div>
       </div>

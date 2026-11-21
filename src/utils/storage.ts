@@ -18,7 +18,7 @@ const DEFAULT_SETTINGS: UserDrumSettings = {
   metronomeVolume: 0.75,
   drumVolume: 0.85,
   lastLessonId: 1,
-  autoDemoAudio: true,
+  autoDemoAudio: false,
 };
 
 export function loadSessionRecords(): SessionRecord[] {
