@@ -47,14 +47,18 @@ export const SessionScoreModal: React.FC<SessionScoreModalProps> = ({
         <div className="flex items-center justify-between gap-4 pb-4 border-b border-slate-800">
           <div>
             <div className="text-xs text-slate-400 flex items-center gap-2">
-              <span>Lesson {String(lesson.id).padStart(2, '0')} Complete</span>
+              <span>
+                {lesson.isSong
+                  ? `Song ${String(lesson.songNumber || lesson.id - 100).padStart(2, '0')} Complete`
+                  : `Lesson ${String(lesson.id).padStart(2, '0')} Complete`}
+              </span>
               <span aria-hidden="true">·</span>
               <span className="font-mono tabular-nums">{session.bpm} BPM</span>
               <span aria-hidden="true">·</span>
               <span>Session #{lessonHistory.length} Saved</span>
             </div>
             <h2 id="session-score-title" className="text-xl font-bold text-white mt-1">
-              {lesson.title}
+              {lesson.isSong && lesson.artist ? `${lesson.artist} — ${lesson.title}` : lesson.title}
             </h2>
           </div>
 
@@ -72,7 +76,7 @@ export const SessionScoreModal: React.FC<SessionScoreModalProps> = ({
           <div className="rounded-xl bg-[#0B0F17] border border-slate-800/90 p-4 flex flex-col justify-between">
             <span className="text-xs text-slate-400">Retained Session Score</span>
             <div className="my-2 flex items-baseline gap-3">
-              <span className="text-5xl font-bold font-mono tabular-nums text-amber-400">
+              <span className="text-5xl font-bold font-mono tabular-nums text-violet-400">
                 {session.score}%
               </span>
               {deltaFromBest !== null && (
@@ -90,19 +94,23 @@ export const SessionScoreModal: React.FC<SessionScoreModalProps> = ({
               )}
             </div>
             <div className="text-xs font-medium text-slate-300 flex items-center gap-1.5">
-              <Award className="w-4 h-4 text-amber-400 shrink-0" />
+              <Award className="w-4 h-4 text-violet-400 shrink-0" />
               <span>{isNewBest ? 'New Personal Best Recorded!' : getGradeText(session.score)}</span>
             </div>
           </div>
 
-          {/* Historical Progression across Sessions for this Lesson */}
+          {/* Historical Progression across Sessions for this Lesson/Song */}
           <div className="rounded-xl bg-[#0B0F17] border border-slate-800/90 p-4 flex flex-col justify-between">
             <div className="flex items-center justify-between text-xs text-slate-400">
-              <span>Lesson #{lesson.id} Progression</span>
+              <span>
+                {lesson.isSong
+                  ? `Song #${lesson.songNumber || lesson.id - 100} Progression`
+                  : `Lesson #${lesson.id} Progression`}
+              </span>
               {deltaFromFirst !== null && (
                 <span
                   className={`font-mono font-semibold tabular-nums ${
-                    deltaFromFirst >= 0 ? 'text-emerald-400' : 'text-amber-400'
+                    deltaFromFirst >= 0 ? 'text-emerald-400' : 'text-violet-400'
                   }`}
                 >
                   {deltaFromFirst >= 0 ? `+${deltaFromFirst}%` : `${deltaFromFirst}%`} since Session 1
@@ -123,7 +131,7 @@ export const SessionScoreModal: React.FC<SessionScoreModalProps> = ({
                     <div className="w-full bg-slate-800/60 rounded-t h-10 flex items-end overflow-hidden">
                       <div
                         className={`w-full rounded-t transition-all ${
-                          isLatest ? 'bg-amber-400' : 'bg-sky-500/60'
+                          isLatest ? 'bg-violet-500' : 'bg-sky-500/60'
                         }`}
                         style={{ height: `${barH}%` }}
                       />
@@ -155,7 +163,7 @@ export const SessionScoreModal: React.FC<SessionScoreModalProps> = ({
             <div className="text-[10px] text-slate-500">Within ±60ms</div>
           </div>
           <div className="rounded-lg bg-[#0B0F17] border border-slate-800/80 p-2.5">
-            <div className="text-[11px] text-amber-400 font-semibold">▲ EARLY</div>
+            <div className="text-[11px] text-violet-400 font-semibold">▲ EARLY</div>
             <div className="text-lg font-bold font-mono tabular-nums text-white mt-0.5">
               {session.earlyCount}
             </div>
@@ -223,13 +231,17 @@ export const SessionScoreModal: React.FC<SessionScoreModalProps> = ({
               <span>View History</span>
             </button>
 
-            {lesson.id < 30 && (
+            {((!lesson.isSong && lesson.id < 30) ||
+              (lesson.isSong && (lesson.songNumber || lesson.id - 100) < 30)) && (
               <button
                 type="button"
                 onClick={onNextLesson}
-                className="min-h-[44px] px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold flex items-center gap-2 transition-colors whitespace-nowrap shrink-0"
+                className="min-h-[44px] px-5 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold flex items-center gap-2 transition-colors whitespace-nowrap shrink-0"
               >
-                <span>Next Lesson ({lesson.id + 1}/30)</span>
+                <span>
+                  Next {lesson.isSong ? 'Song' : 'Lesson'} (
+                  {(lesson.isSong ? lesson.songNumber || lesson.id - 100 : lesson.id) + 1}/30)
+                </span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             )}

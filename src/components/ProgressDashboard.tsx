@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { LESSONS } from '../data/lessons';
+import { TIER_1_SONGS } from '../data/songs';
 import { SessionRecord } from '../types/drums';
 import { getLessonBestScore, getLessonFirstToBestDelta, getLessonSessions } from '../utils/storage';
 import { Play, Trash2, TrendingUp } from 'lucide-react';
@@ -53,7 +54,8 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({
     return Math.round(sum / sessions.length);
   }, [sessions]);
 
-  const inspectedLesson = LESSONS.find((l) => l.id === inspectedLessonId) || LESSONS[0];
+  const allItems = useMemo(() => [...LESSONS, ...TIER_1_SONGS], []);
+  const inspectedLesson = allItems.find((l) => l.id === inspectedLessonId) || LESSONS[0];
   const inspectedSessions = useMemo(
     () => getLessonSessions(sessions, inspectedLessonId),
     [sessions, inspectedLessonId]
@@ -127,7 +129,7 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({
 
         <div className="rounded-xl bg-[#111827] border border-slate-800 p-4">
           <div className="text-xs text-slate-400">Total Scored Sessions</div>
-          <div className="text-3xl font-bold font-mono tabular-nums text-amber-400 mt-1">
+          <div className="text-3xl font-bold font-mono tabular-nums text-violet-400 mt-1">
             {sessions.length}
           </div>
           <div className="text-xs text-slate-400 mt-1">Retained across individual runs</div>
@@ -157,43 +159,60 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({
           <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-800">
             <div>
               <div className="text-xs text-slate-400 flex items-center gap-1.5">
-                <TrendingUp className="w-3.5 h-3.5 text-amber-400" />
-                <span>Per-Lesson Session Score Progression</span>
+                <TrendingUp className="w-3.5 h-3.5 text-violet-400" />
+                <span>Per-Lesson &amp; Song Session Score Progression</span>
               </div>
               <h2 className="text-lg font-bold text-white mt-0.5">
-                {String(inspectedLesson.id).padStart(2, '0')}. {inspectedLesson.title}
+                {inspectedLesson.isSong
+                  ? `Song ${String(inspectedLesson.songNumber || inspectedLesson.id - 100).padStart(2, '0')}: ${inspectedLesson.artist} — ${inspectedLesson.title}`
+                  : `${String(inspectedLesson.id).padStart(2, '0')}. ${inspectedLesson.title}`}
               </h2>
             </div>
 
             <div className="flex items-center gap-2">
               <label htmlFor="inspect-lesson-select" className="text-xs text-slate-400 sr-only">
-                Select Lesson
+                Select Lesson or Song
               </label>
               <select
                 id="inspect-lesson-select"
                 value={inspectedLessonId}
                 onChange={(e) => setInspectedLessonId(parseInt(e.target.value, 10))}
-                className="min-h-[40px] px-3 py-1.5 rounded-xl bg-[#0B0F17] border border-slate-700 text-xs text-slate-200 font-medium"
+                className="min-h-[40px] px-3 py-1.5 rounded-xl bg-[#0B0F17] border border-slate-700 text-xs text-slate-200 font-medium max-w-[260px]"
               >
-                {LESSONS.map((l) => {
-                  const count = getLessonSessions(sessions, l.id).length;
-                  const best = getLessonBestScore(sessions, l.id);
-                  return (
-                    <option key={l.id} value={l.id}>
-                      Lesson {String(l.id).padStart(2, '0')}: {l.title}{' '}
-                      {best !== null ? `(Best ${best}% · ${count}x)` : '(0 sessions)'}
-                    </option>
-                  );
-                })}
+                <optgroup label="30 Step-by-Step Lessons">
+                  {LESSONS.map((l) => {
+                    const count = getLessonSessions(sessions, l.id).length;
+                    const best = getLessonBestScore(sessions, l.id);
+                    return (
+                      <option key={l.id} value={l.id}>
+                        Lesson {String(l.id).padStart(2, '0')}: {l.title}{' '}
+                        {best !== null ? `(Best ${best}% · ${count}x)` : '(0 sessions)'}
+                      </option>
+                    );
+                  })}
+                </optgroup>
+                <optgroup label="Tier 1 Songs (30 Classics & Favorites)">
+                  {TIER_1_SONGS.map((s) => {
+                    const count = getLessonSessions(sessions, s.id).length;
+                    const best = getLessonBestScore(sessions, s.id);
+                    const sNum = String(s.songNumber || s.id - 100).padStart(2, '0');
+                    return (
+                      <option key={s.id} value={s.id}>
+                        Song {sNum}: {s.artist} — {s.title}{' '}
+                        {best !== null ? `(Best ${best}% · ${count}x)` : '(0 sessions)'}
+                      </option>
+                    );
+                  })}
+                </optgroup>
               </select>
 
               <button
                 type="button"
                 onClick={() => onSelectLesson(inspectedLesson.id)}
-                className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold flex items-center gap-1.5 whitespace-nowrap shrink-0"
+                className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold flex items-center gap-1.5 whitespace-nowrap shrink-0"
               >
                 <Play className="w-3.5 h-3.5" />
-                <span>Practice Lesson</span>
+                <span>{inspectedLesson.isSong ? 'Play Song' : 'Practice Lesson'}</span>
               </button>
             </div>
           </div>
@@ -202,7 +221,11 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({
           {inspectedSessions.length === 0 ? (
             <div className="py-12 text-center">
               <p className="text-sm text-slate-300 font-medium">
-                No scored sessions recorded yet for Lesson {String(inspectedLesson.id).padStart(2, '0')}.
+                No scored sessions recorded yet for{' '}
+                {inspectedLesson.isSong
+                  ? `${inspectedLesson.artist} — "${inspectedLesson.title}"`
+                  : `Lesson ${String(inspectedLesson.id).padStart(2, '0')}`}
+                .
               </p>
               <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
                 Complete a {inspectedLesson.barsToComplete}-bar evaluated run in the Studio to retain your first session score and track your improvement curve over time.
@@ -210,10 +233,12 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({
               <button
                 type="button"
                 onClick={() => onSelectLesson(inspectedLesson.id)}
-                className="mt-4 min-h-[42px] px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-amber-400 inline-flex items-center gap-2"
+                className="mt-4 min-h-[42px] px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-violet-400 inline-flex items-center gap-2"
               >
                 <Play className="w-3.5 h-3.5" />
-                <span>Launch Lesson {String(inspectedLesson.id).padStart(2, '0')} in Studio</span>
+                <span>
+                  Launch {inspectedLesson.isSong ? 'Song' : `Lesson ${String(inspectedLesson.id).padStart(2, '0')}`} in Studio
+                </span>
               </button>
             </div>
           ) : (
@@ -231,7 +256,7 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({
                 {inspectedDelta !== null && (
                   <span>
                     Net Improvement:{' '}
-                    <strong className={inspectedDelta >= 0 ? 'text-emerald-400' : 'text-amber-400'}>
+                    <strong className={inspectedDelta >= 0 ? 'text-emerald-400' : 'text-violet-400'}>
                       {inspectedDelta >= 0 ? `+${inspectedDelta}%` : `${inspectedDelta}%`}
                     </strong>
                   </span>
@@ -288,7 +313,7 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({
                         {pts.length > 1 && (
                           <polyline
                             fill="none"
-                            stroke="#F59E0B"
+                            stroke="#8B5CF6"
                             strokeWidth="2.5"
                             points={polylinePoints}
                           />
@@ -300,7 +325,7 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({
                               cy={p.y}
                               r="5"
                               fill="#0B0F17"
-                              stroke="#FBBF24"
+                              stroke="#A78BFA"
                               strokeWidth="2.5"
                             />
                             <text
@@ -354,7 +379,7 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({
                     onClick={() => setInspectedLessonId(lesson.id)}
                     className={`min-h-[48px] rounded-xl border p-1.5 flex flex-col items-center justify-center font-mono tabular-nums transition-all ${
                       isSelected
-                        ? 'ring-2 ring-amber-400 bg-amber-500/20 border-amber-400 text-white'
+                        ? 'ring-2 ring-violet-400 bg-violet-500/20 border-violet-400 text-white'
                         : best !== null
                         ? best >= 85
                           ? 'bg-emerald-950/50 border-emerald-700/70 text-emerald-300'
@@ -437,7 +462,7 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({
                               ? 'text-emerald-400'
                               : rec.score >= 70
                               ? 'text-sky-400'
-                              : 'text-amber-400'
+                              : 'text-violet-400'
                           }`}
                         >
                           {rec.score}%
@@ -455,7 +480,7 @@ export const ProgressDashboard: React.FC<ProgressDashboardProps> = ({
                         <button
                           type="button"
                           onClick={() => onSelectLesson(rec.lessonId)}
-                          className="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-400 font-sans font-semibold text-xs transition-colors"
+                          className="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-violet-400 font-sans font-semibold text-xs transition-colors"
                         >
                           Improve
                         </button>

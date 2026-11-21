@@ -7,6 +7,7 @@
 ## Key Features
 
 - **30-Lesson Progressive Curriculum (20 Bars Each)**: Follow 30 structured lessons in sequence from absolute beginner fundamentals to advanced polyrhythms and linear gospel chops.
+- **Songs — Tier 1 Play-Along Repertoire (30 Songs)**: Dedicated **Songs → Tier 1** library featuring 30 beginner-friendly classic 1990s rock songs and crowd favorites—including **Red Hot Chili Peppers** (*Californication*, *Under the Bridge*, *Scar Tissue*, *Otherside*), **Imagine Dragons** (*Believer*, *Thunder*, *Radioactive*, *Demons*), **Nirvana**, **Weezer**, **Oasis**, **Green Day**, **Foo Fighters**, **The Cranberries**, **Blur**, **Radiohead**, **Smashing Pumpkins**, **Pearl Jam**, and more.
 - **1-Bar Audible & Visual Count-In**: Optional 1-bar tempo count-in before Bar 1 begins (`BEAT 1 / 4` → `BEAT 4 / 4` in `4/4`, or `BEAT 1 / 6` → `BEAT 6 / 6` in `6/8`) so your sticks are already in time on the downbeat.
 - **Loop Forever Mode (`∞`)**: Toggle continuous bar looping during practice to drill any groove or fill endlessly without stopping at Bar 20.
 - **Full-Screen Stage Mode**: Distraction-free full-screen view designed for mounting an Android phone, tablet, or laptop on a music stand next to your drum module.

@@ -42,8 +42,8 @@ export const YAMAHA_DTX452K_PADS: Record<DrumPadId, DrumPadConfig> = {
     keyShortcut: 'E',
     midiNotes: [49, 55, 57],
     defaultLimb: 'R',
-    color: '#F59E0B',
-    strokeColor: '#FBBF24',
+    color: '#8B5CF6',
+    strokeColor: '#A78BFA',
   },
   ride: {
     id: 'ride',
@@ -53,8 +53,8 @@ export const YAMAHA_DTX452K_PADS: Record<DrumPadId, DrumPadConfig> = {
     keyShortcut: 'R',
     midiNotes: [51, 59],
     defaultLimb: 'R',
-    color: '#EAB308',
-    strokeColor: '#FDE047',
+    color: '#9333EA',
+    strokeColor: '#C084FC',
   },
   ride_bell: {
     id: 'ride_bell',
@@ -64,8 +64,8 @@ export const YAMAHA_DTX452K_PADS: Record<DrumPadId, DrumPadConfig> = {
     keyShortcut: 'T',
     midiNotes: [53],
     defaultLimb: 'R',
-    color: '#CA8A04',
-    strokeColor: '#FEF08A',
+    color: '#7C3AED',
+    strokeColor: '#DDD6FE',
   },
   snare: {
     id: 'snare',
@@ -97,8 +97,8 @@ export const YAMAHA_DTX452K_PADS: Record<DrumPadId, DrumPadConfig> = {
     keyShortcut: 'F',
     midiNotes: [37],
     defaultLimb: 'L',
-    color: '#D97706',
-    strokeColor: '#FCD34D',
+    color: '#A855F7',
+    strokeColor: '#D8B4FE',
   },
   tom1: {
     id: 'tom1',

@@ -46,7 +46,7 @@ export const CurriculumView: React.FC<CurriculumViewProps> = ({
             onClick={() => setSelectedTier('all')}
             className={`min-h-[38px] px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap shrink-0 ${
               selectedTier === 'all'
-                ? 'bg-amber-500 text-slate-950'
+                ? 'bg-violet-600 text-white'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
@@ -59,7 +59,7 @@ export const CurriculumView: React.FC<CurriculumViewProps> = ({
               onClick={() => setSelectedTier(tier)}
               className={`min-h-[38px] px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap shrink-0 ${
                 selectedTier === tier
-                  ? 'bg-amber-500 text-slate-950'
+                  ? 'bg-violet-600 text-white'
                   : 'text-slate-400 hover:text-white'
               }`}
             >
@@ -105,7 +105,7 @@ export const CurriculumView: React.FC<CurriculumViewProps> = ({
                         }}
                         className={`rounded-xl border p-4 flex flex-col justify-between transition-all cursor-pointer text-left ${
                           isCurrent
-                            ? 'bg-[#162033] border-amber-500/70'
+                            ? 'bg-[#161B33] border-violet-500/80'
                             : 'bg-[#111827] border-slate-800 hover:border-slate-700'
                         }`}
                       >
@@ -153,7 +153,7 @@ export const CurriculumView: React.FC<CurriculumViewProps> = ({
                             )}
                           </div>
 
-                          <span className="font-semibold text-amber-400 flex items-center gap-1">
+                          <span className="font-semibold text-violet-400 flex items-center gap-1">
                             <Play className="w-3.5 h-3.5" />
                             <span>{isCurrent ? 'Active' : 'Practice'}</span>
                           </span>

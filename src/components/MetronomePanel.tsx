@@ -136,7 +136,7 @@ export const MetronomePanel: React.FC<MetronomePanelProps> = ({
               <div className="text-xs text-slate-400">{getTempoMarking(bpm)}</div>
               <div className="flex items-baseline gap-2 mt-1">
                 <span className="text-6xl font-bold font-mono tabular-nums text-white">{bpm}</span>
-                <span className="text-sm font-mono text-amber-400 font-semibold">BPM</span>
+                <span className="text-sm font-mono text-violet-400 font-semibold">BPM</span>
               </div>
             </div>
 
@@ -159,7 +159,7 @@ export const MetronomePanel: React.FC<MetronomePanelProps> = ({
                 className={`min-h-[48px] px-6 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-colors whitespace-nowrap shrink-0 ${
                   isRunning
                     ? 'bg-rose-500 hover:bg-rose-400 text-white'
-                    : 'bg-amber-500 hover:bg-amber-400 text-slate-950'
+                    : 'bg-violet-600 hover:bg-violet-500 text-white'
                 }`}
               >
                 {isRunning ? <Square className="w-4 h-4" /> : <Play className="w-4 h-4" />}
@@ -187,7 +187,7 @@ export const MetronomePanel: React.FC<MetronomePanelProps> = ({
                     className={`rounded-xl border p-3 flex flex-col items-center justify-center transition-all ${
                       isCurrentBeat
                         ? isBeatOne
-                          ? 'bg-amber-500/25 border-amber-400 text-amber-200 scale-[1.03]'
+                          ? 'bg-violet-500/25 border-violet-400 text-violet-200 scale-[1.03]'
                           : 'bg-sky-500/25 border-sky-400 text-sky-200 scale-[1.03]'
                         : 'bg-[#0B0F17] border-slate-800 text-slate-500'
                     }`}
@@ -200,7 +200,7 @@ export const MetronomePanel: React.FC<MetronomePanelProps> = ({
                           className={`w-1.5 h-1.5 rounded-full ${
                             isCurrentBeat && activeSub === sIdx
                               ? isBeatOne && sIdx === 0
-                                ? 'bg-amber-400'
+                                ? 'bg-violet-400'
                                 : 'bg-sky-400'
                               : 'bg-slate-700'
                           }`}
@@ -245,7 +245,7 @@ export const MetronomePanel: React.FC<MetronomePanelProps> = ({
                 step={1}
                 value={bpm}
                 onChange={(e) => setBpm(parseInt(e.target.value, 10))}
-                className="flex-1 accent-amber-500 cursor-pointer"
+                className="flex-1 accent-violet-500 cursor-pointer"
               />
 
               <button
@@ -280,7 +280,7 @@ export const MetronomePanel: React.FC<MetronomePanelProps> = ({
                   onClick={() => setTimeSig(sig)}
                   className={`min-h-[40px] rounded-lg font-mono text-xs font-semibold transition-colors ${
                     timeSig === sig
-                      ? 'bg-amber-500 text-slate-950'
+                      ? 'bg-violet-600 text-white'
                       : 'text-slate-400 hover:text-white'
                   }`}
                 >
@@ -320,7 +320,7 @@ export const MetronomePanel: React.FC<MetronomePanelProps> = ({
           <div>
             <div className="flex items-center justify-between text-xs text-slate-300 mb-2">
               <label htmlFor="metro-vol-slider" className="flex items-center gap-1.5">
-                <Volume2 className="w-4 h-4 text-amber-400" />
+                <Volume2 className="w-4 h-4 text-violet-400" />
                 <span>Metronome Click Volume</span>
               </label>
               <span className="font-mono tabular-nums">{Math.round(metronomeVolume * 100)}%</span>
@@ -333,7 +333,7 @@ export const MetronomePanel: React.FC<MetronomePanelProps> = ({
               step={0.05}
               value={metronomeVolume}
               onChange={(e) => onChangeMetronomeVolume(parseFloat(e.target.value))}
-              className="w-full accent-amber-500 cursor-pointer"
+              className="w-full accent-violet-500 cursor-pointer"
             />
           </div>
 

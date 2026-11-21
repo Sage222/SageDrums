@@ -37,6 +37,12 @@ export interface LessonStepEvent {
 
 export type TierId = 1 | 2 | 3 | 4 | 5;
 
+export type SongCategory =
+  | '90s Rock Classic'
+  | 'Red Hot Chili Peppers'
+  | 'Imagine Dragons'
+  | 'Modern Crowd Favorite';
+
 export interface Lesson {
   id: number;
   title: string;
@@ -54,6 +60,11 @@ export interface Lesson {
   focusPads: DrumPadId[];
   coachingSteps: string[];
   pattern: LessonStepEvent[];
+  isSong?: boolean;
+  songNumber?: number;
+  artist?: string;
+  year?: number;
+  songCategory?: SongCategory;
 }
 
 export type HitAccuracyRating = 'PERFECT' | 'GOOD' | 'EARLY' | 'LATE' | 'MISSED';

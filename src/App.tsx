@@ -5,6 +5,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { LESSONS } from './data/lessons';
+import { TIER_1_SONGS } from './data/songs';
 import { YAMAHA_DTX452K_PADS } from './data/dtx452kConfig';
 import {
   DrumPadId,
@@ -27,6 +28,7 @@ import { YamahaDTX452KKit } from './components/YamahaDTX452KKit';
 import { WaveTrackerCanvas } from './components/WaveTrackerCanvas';
 import { LessonNotationDeck } from './components/LessonNotationDeck';
 import { CurriculumView } from './components/CurriculumView';
+import { SongsView } from './components/SongsView';
 import { MetronomePanel } from './components/MetronomePanel';
 import { ProgressDashboard } from './components/ProgressDashboard';
 import { SessionScoreModal } from './components/SessionScoreModal';
@@ -34,6 +36,7 @@ import {
   Play,
   Square,
   BookOpen,
+  Music,
   Gauge,
   BarChart3,
   Disc,
@@ -45,7 +48,7 @@ import {
   Minimize2,
 } from 'lucide-react';
 
-type WorkspaceTab = 'studio' | 'curriculum' | 'metronome' | 'progress';
+type WorkspaceTab = 'studio' | 'curriculum' | 'songs' | 'metronome' | 'progress';
 
 interface ScheduledStepSlot {
   globalStep: number;
@@ -86,9 +89,11 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<WorkspaceTab>('studio');
   const [currentLessonId, setCurrentLessonId] = useState<number>(initialSettings.lastLessonId || 1);
 
+  const allPlayableItems = useMemo(() => [...LESSONS, ...TIER_1_SONGS], []);
+
   const currentLesson: Lesson = useMemo(
-    () => LESSONS.find((l) => l.id === currentLessonId) || LESSONS[0],
-    [currentLessonId]
+    () => allPlayableItems.find((l) => l.id === currentLessonId) || LESSONS[0],
+    [allPlayableItems, currentLessonId]
   );
 
   const [bpm, setBpm] = useState<number>(currentLesson.bpm);
@@ -103,9 +108,9 @@ export default function App() {
   const [midiDeviceName, setMidiDeviceName] = useState<string | null>(null);
   const [micThreshold, setMicThreshold] = useState<number>(initialSettings.micThreshold);
   const [latencyOffsetMs, setLatencyOffsetMs] = useState<number>(initialSettings.latencyOffsetMs);
-  // Guide drums off by default
+  // Guide drums and metronome click off by default
   const [demoAudioEnabled, setDemoAudioEnabled] = useState<boolean>(false);
-  const [metronomeClickEnabled, setMetronomeClickEnabled] = useState<boolean>(true);
+  const [metronomeClickEnabled, setMetronomeClickEnabled] = useState<boolean>(false);
   const [metronomeVolume, setMetronomeVolume] = useState<number>(initialSettings.metronomeVolume);
 
   // Real-time playback & evaluation state
@@ -287,7 +292,8 @@ export default function App() {
     const record: SessionRecord = {
       id: `sess_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       lessonId: lesson.id,
-      lessonTitle: lesson.title,
+      lessonTitle:
+        lesson.isSong && lesson.artist ? `${lesson.artist} — ${lesson.title}` : lesson.title,
       timestamp: new Date().toISOString(),
       bpm: bpmRef.current,
       score,
@@ -640,7 +646,7 @@ export default function App() {
 
   const handleSelectLesson = (lessonId: number) => {
     stopLessonSession();
-    const target = LESSONS.find((l) => l.id === lessonId) || LESSONS[0];
+    const target = allPlayableItems.find((l) => l.id === lessonId) || LESSONS[0];
     setCurrentLessonId(target.id);
     setBpm(target.bpm);
     setCurrentStepIndex(0);
@@ -703,7 +709,7 @@ export default function App() {
             SageDrums
           </a>
 
-          {/* Zone 2: 4 concise single-line text navigation links */}
+          {/* Zone 2: Navigation links */}
           <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-slate-400">
             <a
               href="#studio"
@@ -713,7 +719,7 @@ export default function App() {
               }}
               className={`transition-colors whitespace-nowrap shrink-0 py-1 ${
                 activeTab === 'studio'
-                  ? 'text-white underline decoration-amber-500 decoration-2 underline-offset-8'
+                  ? 'text-white underline decoration-violet-500 decoration-2 underline-offset-8'
                   : 'hover:text-white'
               }`}
             >
@@ -727,11 +733,25 @@ export default function App() {
               }}
               className={`transition-colors whitespace-nowrap shrink-0 py-1 ${
                 activeTab === 'curriculum'
-                  ? 'text-white underline decoration-amber-500 decoration-2 underline-offset-8'
+                  ? 'text-white underline decoration-violet-500 decoration-2 underline-offset-8'
                   : 'hover:text-white'
               }`}
             >
               Curriculum
+            </a>
+            <a
+              href="#songs"
+              onClick={(e) => {
+                e.preventDefault();
+                setActiveTab('songs');
+              }}
+              className={`transition-colors whitespace-nowrap shrink-0 py-1 ${
+                activeTab === 'songs'
+                  ? 'text-white underline decoration-violet-500 decoration-2 underline-offset-8'
+                  : 'hover:text-white'
+              }`}
+            >
+              Songs
             </a>
             <a
               href="#metronome"
@@ -741,7 +761,7 @@ export default function App() {
               }}
               className={`transition-colors whitespace-nowrap shrink-0 py-1 ${
                 activeTab === 'metronome'
-                  ? 'text-white underline decoration-amber-500 decoration-2 underline-offset-8'
+                  ? 'text-white underline decoration-violet-500 decoration-2 underline-offset-8'
                   : 'hover:text-white'
               }`}
             >
@@ -755,7 +775,7 @@ export default function App() {
               }}
               className={`transition-colors whitespace-nowrap shrink-0 py-1 ${
                 activeTab === 'progress'
-                  ? 'text-white underline decoration-amber-500 decoration-2 underline-offset-8'
+                  ? 'text-white underline decoration-violet-500 decoration-2 underline-offset-8'
                   : 'hover:text-white'
               }`}
             >
@@ -780,11 +800,13 @@ export default function App() {
               className={`min-h-[38px] px-4 py-1.5 text-xs font-bold rounded-lg transition-colors whitespace-nowrap shrink-0 ${
                 isPlaying
                   ? 'bg-rose-500 hover:bg-rose-400 text-white'
-                  : 'bg-amber-500 hover:bg-amber-400 text-slate-950'
+                  : 'bg-violet-600 hover:bg-violet-500 text-white'
               }`}
             >
               {isPlaying
                 ? 'Stop Session'
+                : currentLesson.isSong
+                ? `Start Song ${String(currentLesson.songNumber || currentLesson.id - 100).padStart(2, '0')}`
                 : `Start Lesson ${String(currentLesson.id).padStart(2, '0')}`}
             </button>
           </div>
@@ -805,10 +827,12 @@ export default function App() {
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-[#111827] border border-slate-800 px-4 py-2.5">
               <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300">
                 <span className="font-bold text-white">
-                  Lesson {String(currentLesson.id).padStart(2, '0')}: {currentLesson.title}
+                  {currentLesson.isSong
+                    ? `Song ${String(currentLesson.songNumber || currentLesson.id - 100).padStart(2, '0')}: ${currentLesson.artist} — ${currentLesson.title}`
+                    : `Lesson ${String(currentLesson.id).padStart(2, '0')}: ${currentLesson.title}`}
                 </span>
                 <span aria-hidden="true" className="text-slate-600">·</span>
-                <span className="text-slate-400">{currentLesson.tierName}</span>
+                <span className="text-violet-400 font-medium">{currentLesson.tierName}</span>
                 {midiDeviceName && (
                   <>
                     <span aria-hidden="true" className="text-slate-600">·</span>
@@ -828,7 +852,7 @@ export default function App() {
                   }}
                   className={`min-h-[38px] px-3 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 ${
                     countInEnabled
-                      ? 'bg-amber-500/15 border-amber-500/60 text-amber-300'
+                      ? 'bg-violet-500/15 border-violet-500/60 text-violet-300'
                       : 'bg-slate-800/90 border-slate-700 text-slate-400 hover:text-white'
                   }`}
                 >
@@ -885,7 +909,7 @@ export default function App() {
                   className={`min-h-[38px] px-4 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 ${
                     isPlaying
                       ? 'bg-rose-500 hover:bg-rose-400 text-white'
-                      : 'bg-amber-500 hover:bg-amber-400 text-slate-950'
+                      : 'bg-violet-600 hover:bg-violet-500 text-white'
                   }`}
                 >
                   {isPlaying ? <Square className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
@@ -915,7 +939,35 @@ export default function App() {
               </div>
             </div>
 
-            {/* Two-Zone Studio Layout */}
+            {/* Primary Full-Width Playback Wave & Rhythm Accuracy Tracker */}
+            <WaveTrackerCanvas
+              lesson={currentLesson}
+              bpm={bpm}
+              isPlaying={isPlaying}
+              loopForever={loopForever}
+              countInBeat={countInBeat}
+              isMicEnabled={isMicEnabled}
+              micThreshold={micThreshold}
+              latencyOffsetMs={latencyOffsetMs}
+              currentStepIndex={currentStepIndex}
+              currentBar={currentBar}
+              latestWaveform={latestWaveform}
+              latestPeak={latestPeak}
+              recentHits={evaluatedHits}
+              lastHitFeedback={lastHitFeedback}
+              onToggleMic={handleToggleMic}
+              onChangeThreshold={(val) => {
+                setMicThreshold(val);
+                saveUserSettings({ micThreshold: val });
+              }}
+              onChangeLatency={(val) => {
+                setLatencyOffsetMs(val);
+                saveUserSettings({ latencyOffsetMs: val });
+              }}
+              compactLandscape={isCompactLandscape}
+            />
+
+            {/* Lower Two-Column Stage: Yamaha DTX452K Kit Layout (Left) + Lesson/Song Controls & Notation Matrix (Right) */}
             <div
               className={`grid gap-4 items-start ${
                 isCompactLandscape
@@ -923,39 +975,12 @@ export default function App() {
                   : 'grid-cols-1 lg:grid-cols-12'
               }`}
             >
-              {/* Left / Stage Zone: Live Microphone Wave Tracker + Yamaha DTX452K Interactive Kit */}
+              {/* Left: Yamaha DTX452K Interactive Kit Layout */}
               <div
-                className={`space-y-4 ${
+                className={`${
                   isCompactLandscape ? 'col-span-7' : 'lg:col-span-7'
                 }`}
               >
-                <WaveTrackerCanvas
-                  lesson={currentLesson}
-                  bpm={bpm}
-                  isPlaying={isPlaying}
-                  loopForever={loopForever}
-                  countInBeat={countInBeat}
-                  isMicEnabled={isMicEnabled}
-                  micThreshold={micThreshold}
-                  latencyOffsetMs={latencyOffsetMs}
-                  currentStepIndex={currentStepIndex}
-                  currentBar={currentBar}
-                  latestWaveform={latestWaveform}
-                  latestPeak={latestPeak}
-                  recentHits={evaluatedHits}
-                  lastHitFeedback={lastHitFeedback}
-                  onToggleMic={handleToggleMic}
-                  onChangeThreshold={(val) => {
-                    setMicThreshold(val);
-                    saveUserSettings({ micThreshold: val });
-                  }}
-                  onChangeLatency={(val) => {
-                    setLatencyOffsetMs(val);
-                    saveUserSettings({ latencyOffsetMs: val });
-                  }}
-                  compactLandscape={isCompactLandscape}
-                />
-
                 <div className="rounded-xl bg-[#111827] border border-slate-800 p-3 sm:p-4">
                   <YamahaDTX452KKit
                     activeStepPads={activeStepEvent ? activeStepEvent.pads : []}
@@ -970,7 +995,7 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Right / Control & Notation Deck */}
+              {/* Right: Lesson/Song Controls & Step Pattern Matrix */}
               <div
                 className={`${
                   isCompactLandscape ? 'col-span-5' : 'lg:col-span-5'
@@ -997,10 +1022,18 @@ export default function App() {
                   onToggleMetronomeClick={() => setMetronomeClickEnabled((prev) => !prev)}
                   onToggleLoopForever={() => setLoopForever((prev) => !prev)}
                   onPrevLesson={() => {
-                    if (currentLesson.id > 1) handleSelectLesson(currentLesson.id - 1);
+                    if (currentLesson.isSong) {
+                      if (currentLesson.id > 101) handleSelectLesson(currentLesson.id - 1);
+                    } else if (currentLesson.id > 1) {
+                      handleSelectLesson(currentLesson.id - 1);
+                    }
                   }}
                   onNextLesson={() => {
-                    if (currentLesson.id < 30) handleSelectLesson(currentLesson.id + 1);
+                    if (currentLesson.isSong) {
+                      if (currentLesson.id < 130) handleSelectLesson(currentLesson.id + 1);
+                    } else if (currentLesson.id < 30) {
+                      handleSelectLesson(currentLesson.id + 1);
+                    }
                   }}
                   onTriggerPad={(padId) => registerUserHit('pad', padId, 0.9)}
                 />
@@ -1014,6 +1047,14 @@ export default function App() {
             currentLessonId={currentLesson.id}
             sessions={sessions}
             onSelectLesson={handleSelectLesson}
+          />
+        )}
+
+        {activeTab === 'songs' && (
+          <SongsView
+            currentLessonId={currentLesson.id}
+            sessions={sessions}
+            onSelectSong={handleSelectLesson}
           />
         )}
 
@@ -1048,13 +1089,13 @@ export default function App() {
       {!isStageMode && (
         <nav
           aria-label="Mobile Navigation"
-          className="md:hidden fixed bottom-0 left-0 right-0 z-40 h-14 bg-[#0B0F17]/95 backdrop-blur-md border-t border-slate-800 grid grid-cols-4 items-center"
+          className="md:hidden fixed bottom-0 left-0 right-0 z-40 h-14 bg-[#0B0F17]/95 backdrop-blur-md border-t border-slate-800 grid grid-cols-5 items-center"
         >
           <button
             type="button"
             onClick={() => setActiveTab('studio')}
             className={`min-h-[44px] flex flex-col items-center justify-center ${
-              activeTab === 'studio' ? 'text-amber-400' : 'text-slate-400'
+              activeTab === 'studio' ? 'text-violet-400' : 'text-slate-400'
             }`}
           >
             <Disc className="w-5 h-5" />
@@ -1065,18 +1106,29 @@ export default function App() {
             type="button"
             onClick={() => setActiveTab('curriculum')}
             className={`min-h-[44px] flex flex-col items-center justify-center ${
-              activeTab === 'curriculum' ? 'text-amber-400' : 'text-slate-400'
+              activeTab === 'curriculum' ? 'text-violet-400' : 'text-slate-400'
             }`}
           >
             <BookOpen className="w-5 h-5" />
-            <span className="text-[10px] font-semibold mt-0.5">30 Lessons</span>
+            <span className="text-[10px] font-semibold mt-0.5">Lessons</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('songs')}
+            className={`min-h-[44px] flex flex-col items-center justify-center ${
+              activeTab === 'songs' ? 'text-violet-400' : 'text-slate-400'
+            }`}
+          >
+            <Music className="w-5 h-5" />
+            <span className="text-[10px] font-semibold mt-0.5">Songs</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab('metronome')}
             className={`min-h-[44px] flex flex-col items-center justify-center ${
-              activeTab === 'metronome' ? 'text-amber-400' : 'text-slate-400'
+              activeTab === 'metronome' ? 'text-violet-400' : 'text-slate-400'
             }`}
           >
             <Gauge className="w-5 h-5" />
@@ -1087,7 +1139,7 @@ export default function App() {
             type="button"
             onClick={() => setActiveTab('progress')}
             className={`min-h-[44px] flex flex-col items-center justify-center ${
-              activeTab === 'progress' ? 'text-amber-400' : 'text-slate-400'
+              activeTab === 'progress' ? 'text-violet-400' : 'text-slate-400'
             }`}
           >
             <BarChart3 className="w-5 h-5" />
@@ -1111,7 +1163,11 @@ export default function App() {
           }}
           onNextLesson={() => {
             setCompletedSessionModal(null);
-            if (currentLesson.id < 30) {
+            if (currentLesson.isSong) {
+              if (currentLesson.id < 130) {
+                handleSelectLesson(currentLesson.id + 1);
+              }
+            } else if (currentLesson.id < 30) {
               handleSelectLesson(currentLesson.id + 1);
             }
           }}

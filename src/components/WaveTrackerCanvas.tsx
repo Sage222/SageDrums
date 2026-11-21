@@ -69,8 +69,8 @@ export const WaveTrackerCanvas: React.FC<WaveTrackerCanvasProps> = ({
 
     const dpr = window.devicePixelRatio || 1;
     const rect = canvas.getBoundingClientRect();
-    const width = rect.width || 680;
-    const height = rect.height || (compactLandscape ? 135 : 175);
+    const width = rect.width || 1100;
+    const height = rect.height || (compactLandscape ? 165 : 230);
 
     if (canvas.width !== width * dpr || canvas.height !== height * dpr) {
       canvas.width = width * dpr;
@@ -98,14 +98,14 @@ export const WaveTrackerCanvas: React.FC<WaveTrackerCanvasProps> = ({
     // Draw Threshold Reference Line in top zone
     const threshY = splitY - 6 - Math.min(1, micThreshold) * (splitY - 16);
     ctx.save();
-    ctx.strokeStyle = '#F59E0B';
+    ctx.strokeStyle = '#8B5CF6';
     ctx.setLineDash([4, 4]);
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(0, threshY);
     ctx.lineTo(width, threshY);
     ctx.stroke();
-    ctx.fillStyle = '#F59E0B';
+    ctx.fillStyle = '#A78BFA';
     ctx.font = '600 10px "JetBrains Mono", monospace';
     ctx.fillText(`THRESHOLD ${(micThreshold * 100).toFixed(0)}%`, 8, Math.max(12, threshY - 4));
     ctx.restore();
@@ -118,14 +118,14 @@ export const WaveTrackerCanvas: React.FC<WaveTrackerCanvasProps> = ({
       const barH = Math.max(2, item.peak * (splitY - 14));
       const x = i * barW;
       const y = splitY - 4 - barH;
-      ctx.fillStyle = item.triggered ? 'rgba(245, 158, 11, 0.55)' : 'rgba(14, 165, 233, 0.25)';
+      ctx.fillStyle = item.triggered ? 'rgba(139, 92, 246, 0.6)' : 'rgba(14, 165, 233, 0.25)';
       ctx.fillRect(x, y, Math.max(1.5, barW - 1), barH);
     }
 
     // Overlay Live High-Speed Time-Domain Oscilloscope Trace
     if (latestWaveform && latestWaveform.length > 0) {
       ctx.save();
-      ctx.strokeStyle = latestPeak >= micThreshold ? '#FBBF24' : '#38BDF8';
+      ctx.strokeStyle = latestPeak >= micThreshold ? '#C4B5FD' : '#38BDF8';
       ctx.lineWidth = 1.6;
       ctx.beginPath();
       const midWaveY = splitY * 0.5;
@@ -175,26 +175,26 @@ export const WaveTrackerCanvas: React.FC<WaveTrackerCanvasProps> = ({
       // Count Label at top of bottom zone
       const countText = getStepCountLabel(s, stepsPerBar, lesson.timeSignature);
       ctx.fillStyle = isCurrentStep ? '#38BDF8' : isDownbeat ? '#E2E8F0' : '#64748B';
-      ctx.font = `${isDownbeat ? '700' : '500'} 10px "JetBrains Mono", monospace`;
-      ctx.fillText(countText, cellX + 5, splitY + 14);
+      ctx.font = `${isDownbeat ? '700' : '500'} 11px "JetBrains Mono", monospace`;
+      ctx.fillText(countText, cellX + 6, splitY + 16);
 
       // Expected Pad Badges inside Step Slot
       if (stepEvent) {
         stepEvent.pads.forEach((padId, idx) => {
           const padCfg = YAMAHA_DTX452K_PADS[padId];
-          const badgeY = splitY + 21 + idx * 16;
-          if (badgeY + 13 < height - 16) {
+          const badgeY = splitY + 24 + idx * 21;
+          if (badgeY + 17 < height - 18) {
             ctx.fillStyle = isCurrentStep ? padCfg.color : '#1E293B';
             ctx.strokeStyle = padCfg.color;
-            ctx.lineWidth = 1.2;
+            ctx.lineWidth = 1.3;
             ctx.beginPath();
-            ctx.roundRect(cellX + 3, badgeY, Math.max(20, cellW - 6), 13, 3);
+            ctx.roundRect(cellX + 4, badgeY, Math.max(24, cellW - 8), 17, 4);
             ctx.fill();
             ctx.stroke();
 
             ctx.fillStyle = '#FFFFFF';
-            ctx.font = '700 8.5px "JetBrains Mono", monospace';
-            ctx.fillText(padCfg.shortLabel, cellX + 6, badgeY + 9.5);
+            ctx.font = '700 10px "JetBrains Mono", monospace';
+            ctx.fillText(padCfg.shortLabel, cellX + 9, badgeY + 12);
           }
         });
       }
@@ -216,7 +216,7 @@ export const WaveTrackerCanvas: React.FC<WaveTrackerCanvasProps> = ({
           color = '#38BDF8';
         } else if (evaluated.rating === 'EARLY') {
           symbol = '▲';
-          color = '#F59E0B';
+          color = '#A78BFA';
         } else if (evaluated.rating === 'LATE') {
           symbol = '▼';
           color = '#F97316';
@@ -252,7 +252,7 @@ export const WaveTrackerCanvas: React.FC<WaveTrackerCanvasProps> = ({
     if (countInBeat) {
       return {
         text: `● COUNT-IN: BEAT ${countInBeat.current} / ${countInBeat.total}`,
-        colorClass: 'text-amber-400',
+        colorClass: 'text-violet-400',
       };
     }
     if (!hit) {
@@ -269,7 +269,7 @@ export const WaveTrackerCanvas: React.FC<WaveTrackerCanvasProps> = ({
       case 'GOOD':
         return { text: `◆ GOOD (${offsetStr})`, colorClass: 'text-sky-400' };
       case 'EARLY':
-        return { text: `▲ EARLY (${offsetStr})`, colorClass: 'text-amber-400' };
+        return { text: `▲ EARLY (${offsetStr})`, colorClass: 'text-violet-400' };
       case 'LATE':
         return { text: `▼ LATE (${offsetStr})`, colorClass: 'text-orange-400' };
       case 'MISSED':
@@ -289,7 +289,7 @@ export const WaveTrackerCanvas: React.FC<WaveTrackerCanvasProps> = ({
             onClick={onToggleMic}
             className={`min-h-[40px] px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-colors whitespace-nowrap shrink-0 ${
               isMicEnabled
-                ? 'bg-amber-500 text-slate-950 hover:bg-amber-400'
+                ? 'bg-violet-600 text-white hover:bg-violet-500'
                 : 'bg-slate-800 text-slate-200 hover:bg-slate-700 border border-slate-700'
             }`}
           >
@@ -322,7 +322,7 @@ export const WaveTrackerCanvas: React.FC<WaveTrackerCanvasProps> = ({
       <div className="relative w-full overflow-hidden rounded-lg border border-slate-800/90 bg-[#090D16]">
         <canvas
           ref={canvasRef}
-          className={`w-full block ${compactLandscape ? 'h-[135px]' : 'h-[175px]'}`}
+          className={`w-full block ${compactLandscape ? 'h-[165px]' : 'h-[230px]'}`}
         />
         {countInBeat && (
           <div className="absolute inset-0 bg-[#090D16]/75 backdrop-blur-[2px] flex flex-col items-center justify-center pointer-events-none">
@@ -339,9 +339,9 @@ export const WaveTrackerCanvas: React.FC<WaveTrackerCanvasProps> = ({
                     key={beatNum}
                     className={`w-10 h-10 rounded-xl font-mono text-lg font-bold tabular-nums flex items-center justify-center border transition-transform ${
                       isActive
-                        ? 'bg-amber-500 border-amber-300 text-slate-950 scale-110'
+                        ? 'bg-violet-600 border-violet-300 text-white scale-110'
                         : isPassed
-                        ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
+                        ? 'bg-violet-500/20 border-violet-500/50 text-violet-300'
                         : 'bg-slate-900 border-slate-700 text-slate-500'
                     }`}
                   >
@@ -361,7 +361,7 @@ export const WaveTrackerCanvas: React.FC<WaveTrackerCanvasProps> = ({
             htmlFor="mic-threshold-slider"
             className="text-slate-400 flex items-center gap-1.5 whitespace-nowrap shrink-0"
           >
-            <Sliders className="w-3.5 h-3.5 text-amber-400" />
+            <Sliders className="w-3.5 h-3.5 text-violet-400" />
             <span>Mic Trigger Threshold:</span>
             <span className="font-mono tabular-nums text-slate-200 font-semibold">
               {(micThreshold * 100).toFixed(0)}%
@@ -375,7 +375,7 @@ export const WaveTrackerCanvas: React.FC<WaveTrackerCanvasProps> = ({
             step={0.01}
             value={micThreshold}
             onChange={(e) => onChangeThreshold(parseFloat(e.target.value))}
-            className="w-full max-w-[160px] accent-amber-500 cursor-pointer"
+            className="w-full max-w-[160px] accent-violet-500 cursor-pointer"
           />
         </div>
 

@@ -4,6 +4,7 @@ import { YAMAHA_DTX452K_PADS } from '../data/dtx452kConfig';
 class DrumAudioEngine {
   private ctx: AudioContext | null = null;
   private noiseBuffer: AudioBuffer | null = null;
+  private crashBuffer: AudioBuffer | null = null;
   private micStream: MediaStream | null = null;
   private micSource: MediaStreamAudioSourceNode | null = null;
   private analyser: AnalyserNode | null = null;
@@ -28,6 +29,9 @@ class DrumAudioEngine {
     if (!this.noiseBuffer && this.ctx) {
       this.noiseBuffer = this.createWhiteNoiseBuffer(this.ctx);
     }
+    if (!this.crashBuffer && this.ctx) {
+      this.crashBuffer = this.createCrashCymbalBuffer(this.ctx);
+    }
     return this.ctx;
   }
 
@@ -38,6 +42,137 @@ class DrumAudioEngine {
     for (let i = 0; i < bufferSize; i++) {
       output[i] = Math.random() * 2 - 1;
     }
+    return buffer;
+  }
+
+  /**
+   * Generates a realistic 3.2-second B20 bronze acoustic crash cymbal sample buffer
+   * using chaotic phase-modulated metallic plate modes, multi-band filtered noise bloom,
+   * and plate diffusion so there is zero static oscillator buzz.
+   */
+  private createCrashCymbalBuffer(ctx: AudioContext): AudioBuffer {
+    const duration = 3.2;
+    const sr = ctx.sampleRate;
+    const length = Math.floor(sr * duration);
+    const buffer = ctx.createBuffer(2, length, sr);
+    const left = buffer.getChannelData(0);
+    const right = buffer.getChannelData(1);
+
+    // 28 inharmonic bronze plate modes (Hz) spanning mid-body shimmer to high air sizzle
+    const modeFreqs = [
+      382, 467, 558, 673, 789, 914, 1063, 1219, 1397, 1588,
+      1811, 2054, 2327, 2639, 2983, 3367, 3791, 4268, 4795, 5384,
+      6041, 6773, 7589, 8492, 9430, 10410, 11380, 12450,
+    ];
+    const modePhases = modeFreqs.map((_, i) => (i * 1.6180339) % (Math.PI * 2));
+
+    // State variables for 3 biquad/one-pole filter bands on the noise excitation
+    let lpBodyL = 0;
+    let lpBodyR = 0;
+    let prevNoiseL = 0;
+    let prevNoiseR = 0;
+
+    // Short comb delay lines for bronze plate diffusion
+    const combDelays = [113, 179, 251, 347];
+    const combBufL = new Float32Array(400);
+    const combBufR = new Float32Array(400);
+    let combIdx = 0;
+
+    for (let i = 0; i < length; i++) {
+      const t = i / sr;
+
+      // Fast stick-edge attack (4ms) + natural two-stage bronze bloom (swell at 28ms)
+      const attack = 1 - Math.exp(-t / 0.0035);
+      const bloom = 1 + 0.38 * Math.exp(-Math.pow((t - 0.028) / 0.032, 2));
+
+      // Sum chaotic FM-coupled metallic modes (shortened tonal decay so modes blend into wash)
+      let modalSumL = 0;
+      let modalSumR = 0;
+      let prevModeVal = 0;
+
+      for (let m = 0; m < modeFreqs.length; m++) {
+        const freq = modeFreqs[m];
+        // Higher modes decay faster; mid-high bronze modes ring slightly longer
+        const modeDecayTime = 0.22 + 0.65 / (1 + freq / 2400);
+        const modeEnv = Math.exp(-t / modeDecayTime);
+        if (modeEnv < 0.0005) continue;
+
+        // Nonlinear cross-modulation between adjacent plate modes creates authentic cymbal chaos
+        const fmIndex = 1.85 * Math.exp(-t / 0.45);
+        const phase = modePhases[m] + fmIndex * prevModeVal;
+        const val = Math.sin(phase);
+        prevModeVal = val;
+
+        modePhases[m] += (2 * Math.PI * freq) / sr;
+        const weight = m < 6 ? 0.018 : m < 18 ? 0.032 : 0.022;
+        if (m % 2 === 0) {
+          modalSumL += val * modeEnv * weight;
+          modalSumR += -val * modeEnv * weight * 0.92;
+        } else {
+          modalSumR += val * modeEnv * weight;
+          modalSumL += val * modeEnv * weight * 0.92;
+        }
+      }
+
+      // Multi-band bronze noise wash + high air sizzle
+      const whiteL = Math.random() * 2 - 1;
+      const whiteR = Math.random() * 2 - 1;
+
+      // High-pass differentiated air sizzle (~6kHz - 14kHz)
+      const airL = whiteL - prevNoiseL;
+      const airR = whiteR - prevNoiseR;
+      prevNoiseL = whiteL;
+      prevNoiseR = whiteR;
+
+      // Band-limited warm bronze shimmer (~1.8kHz - 5.5kHz)
+      lpBodyL += 0.34 * (airL - lpBodyL);
+      lpBodyR += 0.34 * (airR - lpBodyR);
+
+      // Stick impact transient (first 25ms)
+      const stickTransient = Math.exp(-t / 0.011) * 0.55;
+      // Body wash envelope (2.85s)
+      const bodyWashEnv =
+        0.52 * Math.exp(-t / 0.26) +
+        0.38 * Math.exp(-t / 0.95) +
+        0.12 * Math.exp(-t / 1.85);
+      // High shimmer envelope (2.4s)
+      const airSizzleEnv =
+        0.48 * Math.exp(-t / 0.18) +
+        0.32 * Math.exp(-t / 0.78) +
+        0.09 * Math.exp(-t / 1.55);
+
+      let sampleL =
+        attack *
+        bloom *
+        (modalSumL +
+          lpBodyL * (bodyWashEnv + stickTransient) +
+          airL * airSizzleEnv * 0.55);
+      let sampleR =
+        attack *
+        bloom *
+        (modalSumR +
+          lpBodyR * (bodyWashEnv + stickTransient) +
+          airR * airSizzleEnv * 0.55);
+
+      // Plate comb diffusion for lush metallic density
+      let diffL = 0;
+      let diffR = 0;
+      for (let c = 0; c < combDelays.length; c++) {
+        const readIdx = (combIdx - combDelays[c] + 400) % 400;
+        diffL += combBufL[readIdx] * 0.22;
+        diffR += combBufR[readIdx] * 0.22;
+      }
+      combBufL[combIdx] = sampleL + diffL * 0.35;
+      combBufR[combIdx] = sampleR + diffR * 0.35;
+      combIdx = (combIdx + 1) % 400;
+
+      // Smooth tail fade-out over final 250ms
+      const tailFade = t > duration - 0.25 ? (duration - t) / 0.25 : 1;
+
+      left[i] = Math.tanh((sampleL + diffL * 0.45) * 1.35) * tailFade;
+      right[i] = Math.tanh((sampleR + diffR * 0.45) * 1.35) * tailFade;
+    }
+
     return buffer;
   }
 
@@ -246,69 +381,36 @@ class DrumAudioEngine {
       }
 
       case 'crash': {
-        // Rich, long 2.8-second multi-layer metallic studio crash cymbal
-        if (!this.noiseBuffer) break;
-        const crashDuration = 2.75;
+        // Trigger the pre-rendered 3.2s stereo B20 bronze acoustic crash cymbal buffer
+        if (!this.crashBuffer) break;
 
-        // 1. Inharmonic metallic bronze partials
-        const partials = [415, 622, 895, 1245, 1780, 2540];
-        const partialBus = ctx.createBiquadFilter();
-        partialBus.type = 'highpass';
-        partialBus.frequency.setValueAtTime(1600, now);
-        const partialGain = ctx.createGain();
-        partialGain.gain.setValueAtTime(0.18 * vol, now);
-        partialGain.gain.exponentialRampToValueAtTime(0.04 * vol, now + 0.35);
-        partialGain.gain.exponentialRampToValueAtTime(0.0005, now + 2.1);
-        partialBus.connect(partialGain);
-        partialGain.connect(ctx.destination);
+        const src = ctx.createBufferSource();
+        src.buffer = this.crashBuffer;
+        // Subtle pitch variation (±1.2%) so consecutive crashes feel organic
+        src.playbackRate.setValueAtTime(0.99 + Math.random() * 0.022, now);
 
-        partials.forEach((freq, idx) => {
-          const osc = ctx.createOscillator();
-          osc.type = idx % 2 === 0 ? 'square' : 'sawtooth';
-          osc.frequency.setValueAtTime(freq, now);
-          osc.connect(partialBus);
-          osc.start(now);
-          osc.stop(now + 2.15);
-        });
+        const hpFilter = ctx.createBiquadFilter();
+        hpFilter.type = 'highpass';
+        hpFilter.frequency.setValueAtTime(360, now);
 
-        // 2. Warm bronze body wash (Bandpass 3300 Hz -> 2200 Hz sweep over 2.75s)
-        const bodyNoise = ctx.createBufferSource();
-        bodyNoise.buffer = this.noiseBuffer;
-        const bodyFilter = ctx.createBiquadFilter();
-        bodyFilter.type = 'bandpass';
-        bodyFilter.frequency.setValueAtTime(3600, now);
-        bodyFilter.frequency.exponentialRampToValueAtTime(2100, now + crashDuration);
-        bodyFilter.Q.setValueAtTime(0.55, now);
+        // Dynamic brightness shelf that opens up on harder strikes and mellows over the 3.2s tail
+        const shimmerShelf = ctx.createBiquadFilter();
+        shimmerShelf.type = 'highshelf';
+        shimmerShelf.frequency.setValueAtTime(5200, now);
+        shimmerShelf.gain.setValueAtTime(3.5 * velocity, now);
+        shimmerShelf.gain.linearRampToValueAtTime(-3.0, now + 2.8);
 
-        const bodyGain = ctx.createGain();
-        bodyGain.gain.setValueAtTime(0.01, now);
-        bodyGain.gain.linearRampToValueAtTime(0.85 * vol, now + 0.012);
-        bodyGain.gain.exponentialRampToValueAtTime(0.28 * vol, now + 0.45);
-        bodyGain.gain.exponentialRampToValueAtTime(0.0008, now + crashDuration);
+        const crashGain = ctx.createGain();
+        crashGain.gain.setValueAtTime(0.95 * vol, now);
+        crashGain.gain.exponentialRampToValueAtTime(0.001, now + 3.15);
 
-        bodyNoise.connect(bodyFilter);
-        bodyFilter.connect(bodyGain);
-        bodyGain.connect(ctx.destination);
-        bodyNoise.start(now);
-        bodyNoise.stop(now + crashDuration + 0.05);
+        src.connect(hpFilter);
+        hpFilter.connect(shimmerShelf);
+        shimmerShelf.connect(crashGain);
+        crashGain.connect(ctx.destination);
 
-        // 3. High air shimmer sizzle (Highpass 6400 Hz over 2.4s)
-        const airNoise = ctx.createBufferSource();
-        airNoise.buffer = this.noiseBuffer;
-        const airFilter = ctx.createBiquadFilter();
-        airFilter.type = 'highpass';
-        airFilter.frequency.setValueAtTime(6400, now);
-
-        const airGain = ctx.createGain();
-        airGain.gain.setValueAtTime(0.55 * vol, now);
-        airGain.gain.exponentialRampToValueAtTime(0.14 * vol, now + 0.4);
-        airGain.gain.exponentialRampToValueAtTime(0.0005, now + 2.4);
-
-        airNoise.connect(airFilter);
-        airFilter.connect(airGain);
-        airGain.connect(ctx.destination);
-        airNoise.start(now);
-        airNoise.stop(now + 2.45);
+        src.start(now);
+        src.stop(now + 3.2);
         break;
       }
 
